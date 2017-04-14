@@ -242,10 +242,11 @@ jx_object_t *jx_parseFile(char *file)
 		source[i++] = ch;
 
 		if (i == buff_size) {
+			char *temp;
 			buff_size *= 2;
-			if (realloc(source, buff_size) == NULL) {
+			if ((temp = realloc(source, buff_size)) == NULL)
 				goto err;
-			}
+			source = temp;
 		};
 	}
 

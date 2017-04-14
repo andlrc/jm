@@ -65,9 +65,11 @@ static char *escape(char *string)
 
 		/* At most two bytes are written at once */
 		if (i + 1 >= buff_size) {
+			char *temp;
 			buff_size *= 2;
-			if (realloc(buff, buff_size) == NULL)
+			if ((temp = realloc(buff, buff_size)) == NULL)
 				goto err;
+			buff = temp;
 		}
 	}
 

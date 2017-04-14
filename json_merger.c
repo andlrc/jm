@@ -62,7 +62,8 @@ int main(int argc, char **argv)
 				break;
 			case '-':
 				i++;
-				/* Fallthough */
+				goto files;
+				break;
 			case '\0':
 				goto files;
 				break;

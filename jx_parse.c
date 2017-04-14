@@ -164,9 +164,7 @@ static jx_object_t *object(void)
 		white();
 	}
 
-	goto err;
-
-      err:
+	/* Error here */
 	jx_free(object);
 	return NULL;
       finish:
@@ -269,13 +267,13 @@ static char *string(void)
 		ch++;
 
 		if (i == buff_size) {
+			char *temp;
 			buff_size *= 2;
-			if (realloc(buff, buff_size) == NULL)
+			if ((temp = realloc(buff, buff_size)) == NULL)
 				goto err;
+			buff = temp;
 		}
 	}
-
-	goto err;
 
       err:
 	free(buff);
@@ -388,9 +386,11 @@ static char *literal(void)
 		buff[i++] = *ch++;
 
 		if (i == buff_size) {
+			char *temp;
 			buff_size *= 2;
-			if (realloc(buff, buff_size) == NULL)
+			if ((temp = realloc(buff, buff_size)) == NULL)
 				goto err;
+			buff = temp;
 		}
 	}
 
