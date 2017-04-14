@@ -3,10 +3,10 @@
 #include <stdio.h>
 #include "jx.h"
 
-char *text;			/* Used for error messages, contains original source to parse */
-char *ch;			/* The current character */
-size_t lineno;			/* Contains numbers of lines */
-size_t llineno;			/* Contains offset for last lineno is */
+static char *text;		/* Used for error messages, contains original source to parse */
+static char *ch;		/* The current character */
+static size_t lineno;		/* Contains numbers of lines */
+static size_t llineno;		/* Contains offset for where last lineno is */
 
 static void white(void);
 static jx_object_t *object(void);

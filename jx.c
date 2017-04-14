@@ -89,6 +89,20 @@ jx_object_t *jx_newLiteral(char *buff)
 	return node;
 }
 
+jx_object_t *jx_locate(jx_object_t * node, char *key)
+{
+	jx_object_t *next = NULL;
+	if (node->type != jx_type_object)
+		return NULL;
+
+	next = node->firstChild;
+
+	while (next != NULL && strcmp(next->name, key) != 0)
+		next = next->nextSibling;
+
+	return next;
+}
+
 int jx_moveInto(jx_object_t * node, char *key, jx_object_t * child)
 {
 	jx_object_t *next = NULL, *last = NULL;

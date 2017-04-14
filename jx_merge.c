@@ -13,6 +13,47 @@ struct jx_mergeTree_s {
 	int size;
 };
 
+static int template(char *dest, char *src, jx_object_t * vars)
+{
+	size_t i = 0;
+	while (*src != '\0') {
+		if (*src == '$') {
+			char key[256];
+			size_t y = 0;
+			jx_object_t *keyNode = NULL;
+			src++;
+			if (*src == '{') {
+				src++;
+				while (*src != '}') {
+					if (*src == '\0')
+						return 1;
+					key[y++] = *src++;
+				}
+				src++;
+			} else {
+				while ((*src >= 'a' && *src <= 'z')
+				       || (*src >= 'A' && *src <= 'Z')
+				       || (*src >= '0' && *src <= '9')
+				       || *src == '_') {
+					key[y++] = *src++;
+				}
+			}
+
+			key[y] = '\0';
+
+			if ((keyNode = jx_locate(vars, key)) == NULL)
+				return 1;
+
+			for (size_t y = 0; keyNode->value[y] != '\0'; y++) {
+				dest[i++] = keyNode->value[y];
+			}
+		} else {
+			dest[i++] = *src++;
+		}
+	}
+	return 0;
+}
+
 static struct jx_mergeTree_s *resolve(jx_object_t * dest,
 				      jx_object_t * vars)
 {
@@ -43,24 +84,28 @@ static struct jx_mergeTree_s *resolve(jx_object_t * dest,
 
 		next = extends->firstChild;
 		while (next != NULL) {
-			char *filename = next->value;
+			char filename[PATH_MAX];
+			jx_object_t *obj = NULL;
+			if (template(filename, next->value, vars)) {
+				fprintf(stderr,
+					"json_merger: failed to template filename\n");
+				goto err;
+			}
+			if ((obj = jx_parseFile(filename)) == NULL)
+				goto err;
 			if ((mergeTree->extends[size++] =
-			     resolve(jx_parseFile(filename),
-				     vars)) == NULL)
+			     resolve(obj, vars)) == NULL)
 				goto err;
 			next = next->nextSibling;
 		}
 		if (chdir(olddir))
 			goto err;
-		free(dir);
 	}
 
 	mergeTree->size = size;
 	return mergeTree;
 
       err:
-	fprintf(stderr,
-		"json_merger: error happened while merging, aborting\n");
 	exit(1);
 	return NULL;
 }

@@ -62,6 +62,7 @@ jx_object_t *jx_newObject(void);
 jx_object_t *jx_newArray(void);
 jx_object_t *jx_newString(char *buff);
 jx_object_t *jx_newLiteral(char *buff);
+jx_object_t *jx_locate(jx_object_t * node, char *key);
 
 int jx_moveInto(jx_object_t * node, char *key, jx_object_t * child);
 int jx_arrayPush(jx_object_t * node, jx_object_t * child);
