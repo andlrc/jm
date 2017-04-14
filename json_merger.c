@@ -16,8 +16,7 @@ int main(int argc, char **argv)
 {
 	int pretty = 0;		/* Pretty print */
 	char *outsuffix = NULL;	/* Output suffix */
-	char *arg = NULL,
-	     *key = NULL;
+	char *arg = NULL, *key = NULL;
 	jx_object_t *vars = NULL;
 	int i = 1;
 
@@ -81,8 +80,8 @@ int main(int argc, char **argv)
 		char *outfile = NULL;
 		if (outsuffix != NULL) {
 			outfile = calloc(sizeof(char),
-					       strlen(infile) +
-					       strlen(outsuffix) + 1);
+					 strlen(infile) +
+					 strlen(outsuffix) + 1);
 			if (outfile == NULL) {
 				fprintf(stderr,
 					"json_merger: cannot allocate memory for output file\n");
@@ -90,8 +89,7 @@ int main(int argc, char **argv)
 			}
 			strcat(outfile, infile);
 			strcat(outfile, outsuffix);
-		}
-		else {
+		} else {
 			outfile = strdup("-");
 		}
 

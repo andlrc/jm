@@ -70,7 +70,7 @@ void jx_free(jx_object_t * node);
 jx_object_t *jx_parseFile(char *file);
 
 jx_object_t *jx_parse(char *source);
-int jx_serialize(char * outfh, jx_object_t * node, int flags);
-int jx_merge(jx_object_t * dest, jx_object_t *vars);
+int jx_serialize(char *outfh, jx_object_t * node, int flags);
+int jx_merge(jx_object_t * dest, jx_object_t * vars);
 
 #endif
