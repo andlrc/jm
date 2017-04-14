@@ -1,0 +1,8 @@
+tags
+*.o
+*.a
+json_merger
+
+# Keep vim and indent backup files out of git
+*.swp
+*~

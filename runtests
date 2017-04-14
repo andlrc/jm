@@ -1,0 +1,15 @@
+#!/bin/bash
+for file in tests/*.json; do
+	[ -e "$file" ] || continue
+	basename="${file##*/}"
+
+	if diff -q "expected_outputs/$basename" \
+		<(./json_merger -p "$file") \
+		> /dev/null 2>&1
+	then
+		printf "%s passed test\n" "$file"
+	else
+		>&2 printf "%s failed test\n" "$file"
+		exit 1
+	fi
+done
