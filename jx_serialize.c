@@ -1,6 +1,7 @@
 #include <stdlib.h>
-#include "jx.h"
 #include <stdio.h>
+#include <string.h>
+#include "jx.h"
 #define MAX_INDENT 32
 
 static char *indent(int depth)
@@ -169,11 +170,24 @@ static int serialize(FILE * outfh, jx_object_t * node, int flags,
 	return 0;
 }
 
-int jx_serialize(FILE * outfh, jx_object_t * node, int flags)
+int jx_serialize(char * file, jx_object_t * node, int flags)
 {
+	FILE *fh = strcmp(file, "-") == 0 ? stdout : fopen(file, "wb");
+	if (fh == NULL) {
+		fprintf(stderr, "json_merger: cannot create '%s'\n", file);
+		goto err;
+	}
 	if (node == NULL)
-		return 1;
-	int ret = serialize(outfh, node, flags, 0);
-	fprintf(outfh, "\n");
+		goto err;
+
+	int ret = serialize(fh, node, flags, 0);
+	fprintf(fh, "\n");
+	if (fh != stdout)
+		fclose(fh);
 	return ret;
+
+err:
+	if (fh != NULL && fh != stdout)
+		fclose(fh);
+	return 1;
 }

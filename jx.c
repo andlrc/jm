@@ -213,24 +213,23 @@ void jx_free(jx_object_t * node)
 
 jx_object_t *jx_parseFile(char *file)
 {
-	FILE *fh = fopen(file, "rb");
+	FILE *fh = strcmp(file, "-") == 0 ? stdin : fopen(file, "rb");
+	char *source = NULL;
+	size_t buff_size = 256, i = 0;
+	char ch;
+
 	if (fh == NULL) {
 		fprintf(stderr, "json_merger: cannot access '%s'\n", file);
 		goto err;
 	}
-	char *source = NULL;
-	size_t buff_size = 256;
 	if ((source = malloc(buff_size)) == NULL)
 		goto err;
-	char ch;
-	size_t i = 0;
 	while ((ch = getc(fh)) != EOF) {
 		source[i++] = ch;
 
 		if (i == buff_size) {
 			buff_size *= 2;
 			if (realloc(source, buff_size) == NULL) {
-				free(source);
 				goto err;
 			}
 		};
@@ -240,10 +239,14 @@ jx_object_t *jx_parseFile(char *file)
 
 	jx_object_t *node = jx_parse(source);
 	free(source);
-	fclose(fh);
+	if (fh != stdin)
+		fclose(fh);
 	node->filename = strdup(file);
 	return node;
 
       err:
+	free(source);
+	if (fh != NULL && fh != stdin)
+		fclose(fh);
 	return NULL;
 }

@@ -16,10 +16,17 @@ int main(int argc, char **argv)
 {
 	int pretty = 0;		/* Pretty print */
 	char *outsuffix = NULL;	/* Output suffix */
-
+	char *arg = NULL,
+	     *key = NULL;
+	jx_object_t *vars = NULL;
 	int i = 1;
+
+	if ((vars = jx_newObject()) == NULL) {
+		return 1;
+	}
+
 	for (; i < argc; i++) {
-		char *arg = argv[i];
+		arg = argv[i];
 		if (arg[0] == '-') {
 			switch (arg[1]) {
 			case 'h':
@@ -41,9 +48,16 @@ int main(int argc, char **argv)
 						"json_merger: missing argument for '-v'");
 					return 1;
 				}
-				// TODO Add value:
-				i++;
-				// argv[++i];
+
+				arg = argv[++i];
+				key = arg;
+				while (*arg != '\0' && *arg != '=')
+					arg++;
+
+				if (*arg == '=')
+					key[arg++ - key] = '\0';
+
+				jx_moveInto(vars, key, jx_newString(arg));
 				break;
 			default:
 				break;
@@ -60,11 +74,13 @@ int main(int argc, char **argv)
 	}
       files:
 
+	jx_serialize("-", vars, 0);
+
 	for (; i < argc; i++) {
-		FILE *outfh = stdout;
 		char *infile = argv[i];
+		char *outfile = NULL;
 		if (outsuffix != NULL) {
-			char *outfile = calloc(sizeof(char),
+			outfile = calloc(sizeof(char),
 					       strlen(infile) +
 					       strlen(outsuffix) + 1);
 			if (outfile == NULL) {
@@ -74,17 +90,19 @@ int main(int argc, char **argv)
 			}
 			strcat(outfile, infile);
 			strcat(outfile, outsuffix);
-			outfh = fopen(outfile, "wb");
+		}
+		else {
+			outfile = strdup("-");
 		}
 
 		jx_object_t *root = jx_parseFile(infile);
-		jx_merge(root);
-		jx_serialize(outfh, root, pretty ? JX_PRETTY : 0);
-
-		if (outfh != stdout) {
-			fclose(outfh);
-		}
+		jx_merge(root, vars);
+		jx_serialize(outfile, root, pretty ? JX_PRETTY : 0);
+		free(outfile);
+		jx_free(root);
 	}
+
+	jx_free(vars);
 
 	return 0;
 }

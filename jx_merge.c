@@ -13,7 +13,7 @@ struct jx_mergeTree_s {
 	int size;
 };
 
-static struct jx_mergeTree_s *resolve(jx_object_t * dest)
+static struct jx_mergeTree_s *resolve(jx_object_t * dest, jx_object_t *vars)
 {
 
 	struct jx_mergeTree_s *mergeTree = NULL;
@@ -42,8 +42,9 @@ static struct jx_mergeTree_s *resolve(jx_object_t * dest)
 
 		next = extends->firstChild;
 		while (next != NULL) {
+			char *filename = next->value;
 			if ((mergeTree->extends[size++] =
-			     resolve(jx_parseFile(next->value))) == NULL)
+			     resolve(jx_parseFile(filename), vars)) == NULL)
 				goto err;
 			next = next->nextSibling;
 		}
@@ -62,9 +63,9 @@ static struct jx_mergeTree_s *resolve(jx_object_t * dest)
 	return NULL;
 }
 
-int jx_merge(jx_object_t * dest)
+int jx_merge(jx_object_t * dest, jx_object_t *vars)
 {
-	struct jx_mergeTree_s *mergeTree = resolve(dest);
+	struct jx_mergeTree_s *mergeTree = resolve(dest, vars);
 
 	if (mergeTree != NULL)
 		return 0;
