@@ -177,7 +177,6 @@ static jx_object_t *recurseMerge(struct jx_mergeTree_s *mergeTree)
 
 	/* Two or more elements left merge */
 	for (int i = 0; i < size - 1; i++) {
-		printf("size = %d, i = %d\n", size, i);
 		dest = resolved[i];
 		src = resolved[i + 1];
 		merge(src, dest);
