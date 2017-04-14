@@ -61,14 +61,8 @@ int main(int argc, char **argv)
       files:
 
 	for (; i < argc; i++) {
+		FILE *outfh = stdout;
 		char *infile = argv[i];
-		FILE *infh = fopen(infile, "rb"), *outfh = stdout;
-		if (infh == NULL) {
-			fprintf(stderr,
-				"json_merger: cannot access '%s'\n",
-				infile);
-			return 1;
-		}
 		if (outsuffix != NULL) {
 			char *outfile = calloc(sizeof(char),
 					       strlen(infile) +
@@ -76,7 +70,6 @@ int main(int argc, char **argv)
 			if (outfile == NULL) {
 				fprintf(stderr,
 					"json_merger: cannot allocate memory for output file\n");
-				fclose(infh);
 				return 1;
 			}
 			strcat(outfile, infile);
@@ -84,10 +77,10 @@ int main(int argc, char **argv)
 			outfh = fopen(outfile, "wb");
 		}
 
-		jx_object_t *root = jx_parseFile(infh);
+		jx_object_t *root = jx_parseFile(infile);
+		jx_merge(root);
 		jx_serialize(outfh, root, pretty ? JX_PRETTY : 0);
 
-		fclose(infh);
 		if (outfh != stdout) {
 			fclose(outfh);
 		}

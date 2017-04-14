@@ -47,9 +47,10 @@ struct jx_indicators_s {
 
 struct jx_object_s {
 	enum jx_type_e type;
-	char *name;
-	struct jx_indicators_s *indicators;
-	char *value;
+	char *name;		/* Name when stored in object */
+	struct jx_indicators_s *indicators;	/* @indicator values */
+	char *value;		/* Primitive value */
+	char *filename;		/* File path */
 	jx_object_t *firstChild;
 	jx_object_t *lastChild;
 	jx_object_t *nextSibling;
@@ -65,9 +66,11 @@ jx_object_t *jx_newLiteral(char *buff);
 int jx_moveInto(jx_object_t * node, char *key, jx_object_t * child);
 int jx_arrayPush(jx_object_t * node, jx_object_t * child);
 
-int jx_serialize(FILE * outfh, jx_object_t * node, int flags);
-jx_object_t *jx_parseFile(FILE * fh);
-jx_object_t *jx_parse(char *source);
 void jx_free(jx_object_t * node);
+jx_object_t *jx_parseFile(char *file);
+
+jx_object_t *jx_parse(char *source);
+int jx_serialize(FILE * outfh, jx_object_t * node, int flags);
+int jx_merge(jx_object_t * dest);
 
 #endif

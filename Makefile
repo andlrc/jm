@@ -11,7 +11,7 @@ AR	= ar
 
 CDEBUG	= -std=c99 -g -D_POSIX_C_SOURCE=200809L
 
-CFILES	= json_merger.c jx.c jx_parse.c jx_serialize.c
+CFILES	= json_merger.c jx.c jx_parse.c jx_serialize.c jx_merge.c
 HFILES	= jx.h
 TFILES	= $(CFILES) $(HFILES)
 OFILES	= *.o
@@ -20,14 +20,15 @@ OFILES	= *.o
 
 all:	$(PRGNAME)
 
-$(PRGNAME):	json_merger.o jx.o jx_parse.o jx_serialize.o
+$(PRGNAME):	jx.o jx_parse.o jx_serialize.o jx_merge.o json_merger.o
 	$(CC) $(CFLAGS) -o $(PRGNAME) \
-		jx.o jx_parse.o jx_serialize.o json_merger.o
+		jx.o jx_parse.o jx_serialize.o jx_merge.o json_merger.o
 
 json_merger.o:	jx.h json_merger.c
 jx.o:	jx.h jx.c
 jx_parse.o:	jx.h jx_parse.c
 jx_serialize.o:	jx.h jx_serialize.c
+jx_merge.o:	jx.h jx_merge.c
 
 # Build with Symbols
 

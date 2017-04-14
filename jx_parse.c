@@ -139,7 +139,8 @@ static jx_object_t *object(void)
 			break;
 		case jx_indicators_id:
 			/* TODO: Register node under the ID in `val->value' */
-			fprintf(stderr, "json_merger: @ID isn't supported\n");
+			fprintf(stderr,
+				"json_merger: @ID isn't supported\n");
 			break;
 		default:
 			jx_moveInto(object, key, val);

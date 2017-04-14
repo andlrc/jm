@@ -1,6 +1,6 @@
-#include "jx.h"
 #include <string.h>
 #include <stdlib.h>
+#include "jx.h"
 
 static jx_object_t *jx_newNode(void)
 {
@@ -211,13 +211,17 @@ void jx_free(jx_object_t * node)
 	free(node);
 }
 
-jx_object_t *jx_parseFile(FILE * fh)
+jx_object_t *jx_parseFile(char *file)
 {
+	FILE *fh = fopen(file, "rb");
+	if (fh == NULL) {
+		fprintf(stderr, "json_merger: cannot access '%s'\n", file);
+		goto err;
+	}
 	char *source = NULL;
 	size_t buff_size = 256;
-	if ((source = malloc(buff_size)) == NULL) {
-		return NULL;
-	}
+	if ((source = malloc(buff_size)) == NULL)
+		goto err;
 	char ch;
 	size_t i = 0;
 	while ((ch = getc(fh)) != EOF) {
@@ -227,7 +231,7 @@ jx_object_t *jx_parseFile(FILE * fh)
 			buff_size *= 2;
 			if (realloc(source, buff_size) == NULL) {
 				free(source);
-				return NULL;
+				goto err;
 			}
 		};
 	}
@@ -236,5 +240,10 @@ jx_object_t *jx_parseFile(FILE * fh)
 
 	jx_object_t *node = jx_parse(source);
 	free(source);
+	fclose(fh);
+	node->filename = strdup(file);
 	return node;
+
+      err:
+	return NULL;
 }
