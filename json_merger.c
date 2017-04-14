@@ -61,6 +61,7 @@ int main(int argc, char **argv)
 			default:
 				break;
 			case '-':
+				i++;
 				/* Fallthough */
 			case '\0':
 				goto files;
@@ -73,12 +74,17 @@ int main(int argc, char **argv)
 	}
       files:
 
-	jx_serialize("-", vars, 0);
-
 	for (; i < argc; i++) {
 		char *infile = argv[i];
 		char *outfile = NULL;
-		if (outsuffix != NULL) {
+
+		jx_object_t *root = jx_parseFile(infile);
+		if (root == NULL)
+			continue;
+
+		jx_merge(root, vars);
+
+		if (outsuffix != NULL && strcmp(infile, "-") != 0) {
 			outfile = calloc(sizeof(char),
 					 strlen(infile) +
 					 strlen(outsuffix) + 1);
@@ -93,8 +99,6 @@ int main(int argc, char **argv)
 			outfile = strdup("-");
 		}
 
-		jx_object_t *root = jx_parseFile(infile);
-		jx_merge(root, vars);
 		jx_serialize(outfile, root, pretty ? JX_PRETTY : 0);
 		free(outfile);
 		jx_free(root);
