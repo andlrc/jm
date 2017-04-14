@@ -55,6 +55,23 @@ static int template(char *dest, char *src, jx_object_t * vars)
 	return 0;
 }
 
+static void freeTree(struct jx_mergeTree_s *mergeTree)
+{
+	struct jx_mergeTree_s **extends = NULL;
+	int size;
+
+	if (mergeTree != NULL) {
+		extends = mergeTree->extends;
+		size = mergeTree->size;
+
+		for (int i = 0; i < size; i++)
+			freeTree(extends[i]);
+
+		free(extends);
+		free(mergeTree);
+	}
+}
+
 static struct jx_mergeTree_s *genTree(jx_object_t * dest,
 				      jx_object_t * vars)
 {
@@ -129,10 +146,8 @@ static struct jx_mergeTree_s *genTree(jx_object_t * dest,
 
 static int merge(jx_object_t * dest, jx_object_t * src)
 {
+	printf("dst: %s\nsrc: %s\n", dest->filename, src->filename);
 	/* TODO: Merge objects */
-
-	printf("dst: %s\n", dest->filename);
-	printf("src: %s\n", src->filename);
 
 	return 0;
 }
@@ -184,6 +199,11 @@ static jx_object_t *recurseMerge(struct jx_mergeTree_s *mergeTree)
 
 	/* Merge unto root node */
 	merge(node, resolved[size - 1]);
+
+	for (int i = 0; i < size; i++)
+		jx_free(resolved[i]);
+	free(resolved);
+	freeTree(mergeTree);
 
 	return node;
 }
