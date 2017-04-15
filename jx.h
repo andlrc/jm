@@ -68,6 +68,7 @@ int jx_moveInto(jx_object_t * node, char *key, jx_object_t * child);
 int jx_moveOver(jx_object_t * dest, jx_object_t * src);
 int jx_arrayPush(jx_object_t * node, jx_object_t * child);
 
+int jx_detach(jx_object_t * node);
 void jx_free(jx_object_t * node);
 jx_object_t *jx_parseFile(char *file);
 

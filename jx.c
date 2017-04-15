@@ -112,6 +112,8 @@ int jx_moveInto(jx_object_t * node, char *key, jx_object_t * child)
 
 	next = node->firstChild;
 
+	jx_detach(child);
+
 	child->name = strdup(key);
 	child->parent = node;
 
@@ -152,32 +154,47 @@ int jx_moveInto(jx_object_t * node, char *key, jx_object_t * child)
 	return 0;
 }
 
+int jx_detach(jx_object_t * node)
+{
+	jx_object_t *parent = NULL, *next = NULL, *last = NULL;
+	parent = node->parent;
+	if (parent == NULL)
+		goto finish;
+
+	if (node == parent->firstChild)
+		parent->firstChild = node->nextSibling;
+
+	/* We use a stupid forward linked list making a trivial operation of
+	 * pointing (dest - 1)->nextSibling = src require an iteration. */
+	next = parent->firstChild;
+
+	while (next != node && next != NULL) {
+		last = next;
+		next = next->nextSibling;
+	}
+	if (last != NULL) {
+		last->nextSibling = node->nextSibling;
+		if (node == parent->lastChild)
+			parent->lastChild = last;
+	}
+
+      finish:
+	node->nextSibling = NULL;
+	return 0;
+}
+
 int jx_moveOver(jx_object_t * dest, jx_object_t * src)
 {
-	jx_object_t *parent = dest->parent;
+	jx_object_t *parent = dest->parent, *next = NULL, *last = NULL;
 	if (parent == NULL)
 		return 1;
+
+	jx_detach(dest);
 
 	if (dest == parent->lastChild)
 		parent->lastChild = src;
 	if (dest == parent->firstChild)
 		parent->firstChild = src;
-
-	/* We use a stupid forward linked list making a trivial operation of
-	 * pointing (dest - 1)->nextSibling = src require an iteration. */
-	jx_object_t *next = NULL, *last = NULL;
-	/* Fix src chain */
-	if (src->parent == NULL) {
-		next = parent->firstChild;
-
-		while (next != dest && next != NULL) {
-			last = next;
-			next = next->nextSibling;
-		}
-		if (last != NULL) {
-			last->nextSibling = src->nextSibling;
-		}
-	}
 
 	/* Fix dest chain */
 	next = parent->firstChild;
@@ -228,6 +245,7 @@ void jx_free(jx_object_t * node)
 	free(node->name);
 	node->name = NULL;
 
+	/* Remove from parent */
 	if (node->parent != NULL) {
 		next = node->parent->firstChild;
 		while (next != node) {
@@ -251,6 +269,8 @@ void jx_free(jx_object_t * node)
 			"json_merger: cannot free UNKNOWN object\n");
 		break;
 	case jx_type_object:
+		/* TODO: free indicators */
+		/* Fallthough */
 	case jx_type_array:
 		next = node->firstChild;
 		while (next != NULL) {
