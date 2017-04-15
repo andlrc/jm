@@ -229,7 +229,8 @@ static int mergeObject(jx_object_t * dest, jx_object_t * src)
 
 	/* Check indicators */
 	if (src->indicators->delete != NULL) {
-		jx_object_t *delete = src->indicators->delete;
+		jx_object_t *delete = src->indicators->delete, *next =
+		    NULL;
 
 		switch (delete->type) {
 		case jx_type_literal:
@@ -240,8 +241,15 @@ static int mergeObject(jx_object_t * dest, jx_object_t * src)
 				break;
 			}
 		case jx_type_array:
-			/* TODO: Delete properties listed in array */
-			goto errind;
+			/* Delete properties listed in array */
+			next = delete->firstChild;
+			while (next != NULL) {
+				if (next->type != jx_type_string)
+					goto errind;
+
+				jx_free(jx_locate(dest, next->value));
+				next = next->nextSibling;
+			}
 			break;
 		default:
 			goto errind;
