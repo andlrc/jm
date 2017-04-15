@@ -152,6 +152,49 @@ int jx_moveInto(jx_object_t * node, char *key, jx_object_t * child)
 	return 0;
 }
 
+int jx_moveOver(jx_object_t * dest, jx_object_t * src)
+{
+	jx_object_t *parent = dest->parent;
+	if (parent == NULL)
+		return 1;
+
+	if (dest == parent->lastChild)
+		parent->lastChild = src;
+	if (dest == parent->firstChild)
+		parent->firstChild = src;
+
+	/* We use a stupid forward linked list making a trivial operation of
+	 * pointing (dest - 1)->nextSibling = src require an iteration. */
+	jx_object_t *next = NULL, *last = NULL;
+	/* Fix src chain */
+	if (src->parent == NULL) {
+		next = parent->firstChild;
+
+		while (next != dest && next != NULL) {
+			last = next;
+			next = next->nextSibling;
+		}
+		if (last != NULL) {
+			last->nextSibling = src->nextSibling;
+		}
+	}
+
+	/* Fix dest chain */
+	next = parent->firstChild;
+
+	while (next != dest && next != NULL) {
+		last = next;
+		next = next->nextSibling;
+	}
+	if (last != NULL) {
+		last->nextSibling = dest;
+	}
+
+	src->nextSibling = dest->nextSibling;
+
+	return 0;
+}
+
 int jx_arrayPush(jx_object_t * node, jx_object_t * child)
 {
 	/* An array is a linked list */
