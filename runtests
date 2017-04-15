@@ -1,11 +1,17 @@
 #!/bin/bash
+if [ "$1" = "verbose" ] || [ "$1" == "-v" ]
+then
+	exec 3>&1
+else
+	exec 3>/dev/null
+fi
 for file in tests/*.json; do
 	[ -e "$file" ] || continue
 	basename="${file##*/}"
 
-	if diff -q "expected_outputs/$basename" \
+	if diff "expected_outputs/$basename" \
 		<(./json_merger -p "$file") \
-		> /dev/null 2>&1
+		>&3 2>&1
 	then
 		printf "%s passed test\n" "$file"
 	else

@@ -165,36 +165,38 @@ static int mergeArray(jx_object_t * dest, jx_object_t * src)
 	while (srcNext != NULL) {
 		srcNext2 = srcNext->nextSibling;
 
-		if (srcNext->indicators->append != NULL) {
-			jx_object_t *ind = srcNext->indicators->append;
-			if (ind->type != jx_type_literal)
-				goto errind;
-			if (strcmp(ind->value, "true") == 0) {
-				if (jx_arrayInsertAt(dest, 0, srcNext))
+		if (srcNext->type == jx_type_object) {
+			if (srcNext->indicators->append != NULL) {
+				jx_object_t *ind = srcNext->indicators->append;
+				if (ind->type != jx_type_literal)
+					goto errind;
+				if (strcmp(ind->value, "true") == 0) {
+					if (jx_arrayInsertAt(dest, 0, srcNext))
+						goto errmov;
+					goto cont;
+				}
+			}
+
+			if (srcNext->indicators->prepend != NULL) {
+				jx_object_t *ind = srcNext->indicators->prepend;
+				if (ind->type != jx_type_literal)
+					goto errind;
+				if (strcmp(ind->value, "true") == 0) {
+					if (jx_arrayPush(dest, srcNext))
+						goto errmov;
+					goto cont;
+				}
+			}
+
+			if (srcNext->indicators->insert != NULL) {
+				jx_object_t *ind = srcNext->indicators->insert;
+				if (ind->type != jx_type_literal)
+					goto errind;
+				if (jx_arrayInsertAt
+				    (dest, atoi(ind->value), srcNext))
 					goto errmov;
 				goto cont;
 			}
-		}
-
-		if (srcNext->indicators->prepend != NULL) {
-			jx_object_t *ind = srcNext->indicators->prepend;
-			if (ind->type != jx_type_literal)
-				goto errind;
-			if (strcmp(ind->value, "true") == 0) {
-				if (jx_arrayPush(dest, srcNext))
-					goto errmov;
-				goto cont;
-			}
-		}
-
-		if (srcNext->indicators->insert != NULL) {
-			jx_object_t *ind = srcNext->indicators->insert;
-			if (ind->type != jx_type_literal)
-				goto errind;
-			if (jx_arrayInsertAt
-			    (dest, atoi(ind->value), srcNext))
-				goto errmov;
-			goto cont;
 		}
 
 		if (destNext == NULL) {
@@ -204,8 +206,8 @@ static int mergeArray(jx_object_t * dest, jx_object_t * src)
 			if ((ret = merge(destNext, srcNext)))
 				return ret;
 
+			destNext = destNext->nextSibling;
 		}
-		destNext = destNext->nextSibling;
 	      cont:
 		srcNext = srcNext2;
 	}
@@ -294,12 +296,10 @@ static int merge(jx_object_t * dest, jx_object_t * src)
 		return mergeArray(dest, src);
 		break;
 	case jx_type_string:	/* Copy string over */
-		free(dest->value);
-		dest->value = strdup(src->value);
+		jx_moveOver(dest, src);
 		break;
 	case jx_type_literal:	/* Copy literal over */
-		free(dest->value);
-		dest->value = strdup(src->value);
+		jx_moveOver(dest, src);
 		break;
 	}
 
@@ -344,17 +344,18 @@ static jx_object_t *recurseMerge(struct jx_mergeTree_s *mergeTree)
 	for (int i = 0; i < size; i++)
 		resolved[i] = recurseMerge(extends[i]);
 
-	/* Two or more elements left merge */
-	for (int i = 0; i < size - 1; i++) {
-		dest = resolved[i];
-		src = resolved[i + 1];
-		merge(src, dest);
+	dest = resolved[0];
+	/* Two or more elements left to merge */
+	for (int i = 1; i < size; i++) {
+		src = resolved[i];
+		merge(dest, src);
 	}
 
 	/* Merge unto root node */
-	merge(node, resolved[size - 1]);
+	merge(dest, node);
+	node = dest;
 
-	for (int i = 0; i < size; i++)
+	for (int i = 1; i < size; i++)
 		jx_free(resolved[i]);
 	free(resolved);
 	freeTree(mergeTree);
@@ -362,11 +363,13 @@ static jx_object_t *recurseMerge(struct jx_mergeTree_s *mergeTree)
 	return node;
 }
 
-int jx_merge(jx_object_t * dest, jx_object_t * vars)
+/* Caller should never free dest, but free the return value */
+jx_object_t *jx_merge(jx_object_t * dest, jx_object_t * vars)
 {
 	struct jx_mergeTree_s *mergeTree = genTree(dest, vars);
 
-	if (mergeTree == NULL || recurseMerge(mergeTree) == NULL)
-		return 1;
-	return 0;
+	if (mergeTree == NULL)
+		return NULL;
+
+	return recurseMerge(mergeTree);
 }

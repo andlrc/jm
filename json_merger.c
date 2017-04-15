@@ -83,7 +83,7 @@ int main(int argc, char **argv)
 		if (root == NULL)
 			continue;
 
-		jx_merge(root, vars);
+		root = jx_merge(root, vars);
 
 		if (outsuffix != NULL && strcmp(infile, "-") != 0) {
 			outfile = calloc(sizeof(char),
