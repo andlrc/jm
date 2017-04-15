@@ -178,7 +178,9 @@ int jx_detach(jx_object_t * node)
 			parent->lastChild = last;
 	}
 
+
       finish:
+	node->parent = NULL;
 	node->nextSibling = NULL;
 	return 0;
 }
@@ -189,14 +191,8 @@ int jx_moveOver(jx_object_t * dest, jx_object_t * src)
 	if (parent == NULL)
 		return 1;
 
-	jx_detach(dest);
+	jx_detach(src);
 
-	if (dest == parent->lastChild)
-		parent->lastChild = src;
-	if (dest == parent->firstChild)
-		parent->firstChild = src;
-
-	/* Fix dest chain */
 	next = parent->firstChild;
 
 	while (next != dest && next != NULL) {
@@ -208,6 +204,15 @@ int jx_moveOver(jx_object_t * dest, jx_object_t * src)
 	}
 
 	src->nextSibling = dest->nextSibling;
+
+	if (dest == parent->lastChild)
+		parent->lastChild = src;
+	if (dest == parent->firstChild)
+		parent->firstChild = src;
+
+	/* Unset dest->parent to avoid screwups in jx_detach */
+	dest->parent = NULL;
+	jx_free(dest);
 
 	return 0;
 }
@@ -240,29 +245,62 @@ int jx_arrayPush(jx_object_t * node, jx_object_t * child)
 	return 0;
 }
 
+int jx_arrayInsertAt(jx_object_t * node, int index, jx_object_t * child)
+{
+	/* An array is a linked list */
+	if (node->type != jx_type_array)
+		return 1;
+
+	/* Already in array */
+	if (child->parent == node)
+		return 2;
+
+	jx_detach(child);
+
+	free(child->name);
+	child->name = NULL;
+	child->parent = node;
+
+	if (node->firstChild == NULL) {
+		node->firstChild = child;
+		node->lastChild = child;
+	} else {
+		jx_object_t *next = NULL, *last = NULL;
+		next = node->firstChild;
+
+		for (int i = 0; i < index; i++) {
+			if (next == NULL) {
+				return 3;
+			}
+			last = next;
+			next = next->nextSibling;
+		}
+
+		if (last == NULL) {	/* index = 0 */
+			node->firstChild = child;
+			child->nextSibling = next;
+
+		} else {
+			last->nextSibling = child;
+			child->nextSibling = next;
+		}
+	}
+
+	return 0;
+}
+
 void jx_free(jx_object_t * node)
 {
 	jx_object_t *next = NULL, *last = NULL;
 
-	free(node->name);
-	node->name = NULL;
+	if (node->name != NULL) {
+		free(node->name);
+		node->name = NULL;
+	}
 
 	/* Remove from parent */
 	if (node->parent != NULL) {
-		next = node->parent->firstChild;
-		while (next != node) {
-			last = next;
-			next = last->nextSibling;
-		}
-
-		if (last == NULL) {	/* First child */
-			node->parent->firstChild = node->nextSibling;
-		} else if (node == node->parent->lastChild) {
-			node->parent->lastChild = last;
-			last->nextSibling = NULL;
-		} else {
-			last->nextSibling = node->nextSibling;
-		}
+		jx_detach(node);
 	}
 
 	switch (node->type) {
