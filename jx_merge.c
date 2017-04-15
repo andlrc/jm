@@ -237,11 +237,34 @@ static int mergeObject(jx_object_t * dest, jx_object_t * src)
 		switch (delete->type) {
 		case jx_type_literal:
 			/* Delete dest property */
-			if (strcmp(delete->value, "true") == 0)
+			if (strcmp(delete->value, "true") == 0) {
 				jx_free(dest);
-			return 0;
+				return 0;
+				break;
+			}
 		case jx_type_array:
 			/* TODO: Delete properties listed in array */
+			goto errind;
+			break;
+		default:
+			goto errind;
+			break;
+		}
+	}
+
+	if (src->indicators->override != NULL) {
+		jx_object_t *override = src->indicators->override;
+		switch (override->type) {
+		case jx_type_literal:
+			/* Move over dest property */
+			if (strcmp(override->value, "true") == 0) {
+				if (jx_moveOver(dest, src))
+					goto errmov;
+				return 0;
+			}
+			break;
+		case jx_type_array:
+			/* TODO: Override properties listed in array */
 			goto errind;
 			break;
 		default:
@@ -278,7 +301,7 @@ static int mergeObject(jx_object_t * dest, jx_object_t * src)
 	return 0;
 
       errind:
-	fprintf(stderr, "json_merger: Error in ARRAY indicator\n");
+	fprintf(stderr, "json_merger: Error in OBJECT indicator\n");
 	return 1;
       errmov:
 	fprintf(stderr, "json_merger: Error moving into OBJECT\n");

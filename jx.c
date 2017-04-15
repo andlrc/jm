@@ -200,7 +200,7 @@ int jx_moveOver(jx_object_t * dest, jx_object_t * src)
 		next = next->nextSibling;
 	}
 	if (last != NULL) {
-		last->nextSibling = dest;
+		last->nextSibling = src;
 	}
 
 	src->nextSibling = dest->nextSibling;
@@ -210,7 +210,12 @@ int jx_moveOver(jx_object_t * dest, jx_object_t * src)
 	if (dest == parent->firstChild)
 		parent->firstChild = src;
 
-	/* Unset dest->parent to avoid screwups in jx_detach */
+	if (src->name != NULL)
+		free(src->name);
+
+	src->name = dest->name != NULL ? strdup(dest->name) : NULL;
+
+	/* Unset dest->parent to avoid screwups in jx_free -> jx_detach */
 	dest->parent = NULL;
 	jx_free(dest);
 
