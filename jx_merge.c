@@ -169,8 +169,7 @@ static int mergeArray(jx_object_t * dest, jx_object_t * src)
 				if (ind->type != jx_type_literal)
 					goto errind;
 				if (strcmp(ind->value, "true") == 0) {
-					if (jx_arrayInsertAt
-					    (dest, 0, srcNext))
+					if (jx_arrayPush(dest, srcNext))
 						goto errmov;
 					goto cont;
 				}
@@ -182,7 +181,8 @@ static int mergeArray(jx_object_t * dest, jx_object_t * src)
 				if (ind->type != jx_type_literal)
 					goto errind;
 				if (strcmp(ind->value, "true") == 0) {
-					if (jx_arrayPush(dest, srcNext))
+					if (jx_arrayInsertAt
+					    (dest, 0, srcNext))
 						goto errmov;
 					goto cont;
 				}

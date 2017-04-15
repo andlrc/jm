@@ -4653,10 +4653,6 @@
 				}
 			},
 			"WSHNTFTR00": {
-				"title": {
-					"da": "Blingscenter",
-					"en": "Bling Center"
-				},
 				"description": "OBS! Bedre titel? er det noget klienten bruger? Skal besked og emne 'scrambles'?",
 				"description1": "Kan status blive til en varchar istedet for en integer?",
 				"description2": "Skal vi ikke ha datoer på?",
@@ -4849,10 +4845,6 @@
 									"index": 2
 								}
 							},
-							"title": {
-								"da": "Blinger",
-								"en": "Bling"
-							},
 							"columns": [
 								{
 									"name": "NTFNTFTKN"
@@ -4962,9 +4954,17 @@
 										}
 									]
 								}
+							},
+							"title": {
+								"da": "Blinger",
+								"en": "Bling"
 							}
 						}
 					}
+				},
+				"title": {
+					"da": "Blingscenter",
+					"en": "Bling Center"
 				}
 			},
 			"WSHIRLRL00": {

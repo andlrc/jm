@@ -2,7 +2,7 @@
 	"@extends": ["02-B.json"],
 	"myArray": [
 		{
-			"@prepend": true,
+			"@append": true,
 			"c": 100
 		},
 		{
