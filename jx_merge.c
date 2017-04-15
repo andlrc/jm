@@ -250,7 +250,8 @@ static int mergeObject(jx_object_t * dest, jx_object_t * src)
 	}
 
 	if (src->indicators->override != NULL) {
-		jx_object_t *override = src->indicators->override, *next = NULL;
+		jx_object_t *override = src->indicators->override, *next =
+		    NULL;
 		switch (override->type) {
 		case jx_type_literal:
 			/* Move over dest property */
