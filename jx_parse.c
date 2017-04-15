@@ -292,7 +292,7 @@ static char *number(void)
 		return 0;
 
 	if (*ch == '-')
-		string[i++] = *ch;
+		string[i++] = *ch++;
 
 	while (*ch >= '0' && *ch <= '9') {
 		string[i++] = *ch;
