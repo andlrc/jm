@@ -110,9 +110,9 @@ int jx_moveInto(jx_object_t * node, char *key, jx_object_t * child)
 	if (node->type != jx_type_object)
 		return 1;
 
-	next = node->firstChild;
-
 	jx_detach(child);
+
+	next = node->firstChild;
 
 	child->name = strdup(key);
 	child->parent = node;
@@ -161,12 +161,12 @@ int jx_detach(jx_object_t * node)
 	if (parent == NULL)
 		goto finish;
 
-	if (node == parent->firstChild)
-		parent->firstChild = node->nextSibling;
-
 	/* We use a stupid forward linked list making a trivial operation of
 	 * pointing (dest - 1)->nextSibling = src require an iteration. */
 	next = parent->firstChild;
+
+	if (node == parent->firstChild)
+		parent->firstChild = node->nextSibling;
 
 	while (next != node && next != NULL) {
 		last = next;
@@ -221,6 +221,8 @@ int jx_arrayPush(jx_object_t * node, jx_object_t * child)
 	/* Already in array */
 	if (child->parent == node)
 		return 2;
+
+	jx_detach(child);
 
 	free(child->name);
 	child->name = NULL;

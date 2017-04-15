@@ -146,10 +146,87 @@ static struct jx_mergeTree_s *genTree(jx_object_t * dest,
 
 static int merge(jx_object_t * dest, jx_object_t * src)
 {
-	printf("dst: %s\nsrc: %s\n", dest->filename, src->filename);
-	/* TODO: Merge objects */
+	switch (src->type) {
+	case jx_type_unknown:
+		fprintf(stderr,
+			"json_merger: cannot merge UNKNOWN type\n");
+		return 1;
+		break;
+	case jx_type_object:
+		if (dest->type != src->type) {	/* Move src over dest */
+			if (jx_moveOver(dest, src))
+				goto errmov;
+		} else {	/* Check indicators, and if nothing else then
+				 * iterate properties and call recursive */
+			jx_object_t *srcNext = NULL, *srcNext2 =
+			    NULL, *destNext = NULL;
+
+			srcNext = src->firstChild;
+
+			while (srcNext != NULL) {
+				srcNext2 = srcNext->nextSibling;
+
+				if ((destNext =
+				     jx_locate(dest,
+					       srcNext->name)) == NULL)
+					jx_moveInto(dest, srcNext->name,
+						    srcNext);
+				else if (merge
+					 (jx_locate(dest, srcNext->name),
+					  srcNext))
+					goto errobj;
+				srcNext = srcNext2;
+			}
+
+		}
+		break;
+	case jx_type_array:
+		if (dest->type != src->type) {	/* Move src over dest */
+			if (jx_moveOver(dest, src))
+				goto errmov;
+		} else {	/* Iterate array and call recursive */
+			jx_object_t *srcNext = NULL,
+			    *srcNext2 = NULL, *destNext = NULL;
+
+			srcNext = src->firstChild;
+			destNext = dest->firstChild;
+			while (srcNext != NULL) {
+				srcNext2 = srcNext->nextSibling;
+				if (destNext == NULL) {
+					if (jx_arrayPush(dest, srcNext))
+						goto errmov;
+				} else {
+					int ret = 0;
+					if ((ret =
+					     merge(destNext, srcNext)))
+						return ret;
+
+					destNext = destNext->nextSibling;
+				}
+
+				srcNext = srcNext2;
+			}
+		}
+		break;
+	case jx_type_string:	/* Copy string over */
+		free(dest->value);
+		dest->value = strdup(src->value);
+		break;
+	case jx_type_literal:	/* Copy literal over */
+		free(dest->value);
+		dest->value = strdup(src->value);
+		break;
+	}
 
 	return 0;
+      errobj:
+	fprintf(stderr,
+		"json_merger: failed to merge object properties\n");
+	return 1;
+      errmov:
+	fprintf(stderr,
+		"json_merger: cannot merge element without parent\n");
+	return 1;
 }
 
 static jx_object_t *recurseMerge(struct jx_mergeTree_s *mergeTree)
