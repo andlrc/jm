@@ -14,6 +14,8 @@ struct jx_mergeTree_s {
 	int size;
 };
 
+static int merge(jx_object_t * dest, jx_object_t * src);
+
 static int template(char *dest, char *src, jx_object_t * vars)
 {
 	size_t i = 0;
@@ -144,6 +146,139 @@ static struct jx_mergeTree_s *genTree(jx_object_t * dest,
 	return NULL;
 }
 
+static int mergeArray(jx_object_t * dest, jx_object_t * src)
+{
+	int ret = 0;
+
+	/* Move src over dest */
+	if (dest->type != src->type) {
+		if (jx_moveOver(dest, src))
+			goto errmov;
+		return 0;
+	}
+
+	/* Iterate array and call recursive */
+	jx_object_t *srcNext = NULL, *srcNext2 = NULL, *destNext = NULL;
+
+	srcNext = src->firstChild;
+	destNext = dest->firstChild;
+	while (srcNext != NULL) {
+		srcNext2 = srcNext->nextSibling;
+
+		if (srcNext->indicators->append != NULL) {
+			jx_object_t *ind = srcNext->indicators->append;
+			if (ind->type != jx_type_literal)
+				goto errind;
+			if (strcmp(ind->value, "true") == 0) {
+				if (jx_arrayInsertAt(dest, 0, srcNext))
+					goto errmov;
+				goto cont;
+			}
+		}
+
+		if (srcNext->indicators->prepend != NULL) {
+			jx_object_t *ind = srcNext->indicators->prepend;
+			if (ind->type != jx_type_literal)
+				goto errind;
+			if (strcmp(ind->value, "true") == 0) {
+				if (jx_arrayPush(dest, srcNext))
+					goto errmov;
+				goto cont;
+			}
+		}
+
+		if (srcNext->indicators->insert != NULL) {
+			jx_object_t *ind = srcNext->indicators->insert;
+			if (ind->type != jx_type_literal)
+				goto errind;
+			if (jx_arrayInsertAt
+			    (dest, atoi(ind->value), srcNext))
+				goto errmov;
+			goto cont;
+		}
+
+		if (destNext == NULL) {
+			if (jx_arrayPush(dest, srcNext))
+				goto errmov;
+		} else {
+			if ((ret = merge(destNext, srcNext)))
+				return ret;
+
+		}
+		destNext = destNext->nextSibling;
+	      cont:
+		srcNext = srcNext2;
+	}
+
+	return 0;
+
+      errind:
+	fprintf(stderr, "json_merger: Error in ARRAY indicator\n");
+	return 1;
+      errmov:
+	fprintf(stderr, "json_merger: Error pushing ARRAY\n");
+	return 1;
+}
+
+static int mergeObject(jx_object_t * dest, jx_object_t * src)
+{
+	int ret = 0;
+
+	/* Check indicators */
+	if (src->indicators->delete != NULL) {
+		jx_object_t *delete = src->indicators->delete;
+
+		switch (delete->type) {
+		case jx_type_literal:
+			/* Delete dest property */
+			if (strcmp(delete->value, "true") == 0)
+				jx_free(dest);
+			return 0;
+		case jx_type_array:
+			/* TODO: Delete properties listed in array */
+			goto errind;
+			break;
+		default:
+			goto errind;
+			break;
+		}
+	}
+
+	/* Move src over dest */
+	if (dest->type != src->type) {
+		if (jx_moveOver(dest, src))
+			goto errmov;
+		return 0;
+	}
+
+	/* Check indicators, and if nothing else then iterate properties and
+	 * call recursive */
+	jx_object_t *srcNext = NULL, *srcNext2 = NULL, *destNext = NULL;
+
+	srcNext = src->firstChild;
+
+	while (srcNext != NULL) {
+		srcNext2 = srcNext->nextSibling;
+
+		if ((destNext = jx_locate(dest, srcNext->name)) == NULL)
+			jx_moveInto(dest, srcNext->name, srcNext);
+		else if ((ret =
+			  merge(jx_locate(dest, srcNext->name), srcNext)))
+			return ret;
+
+		srcNext = srcNext2;
+	}
+
+	return 0;
+
+      errind:
+	fprintf(stderr, "json_merger: Error in ARRAY indicator\n");
+	return 1;
+      errmov:
+	fprintf(stderr, "json_merger: Error moving into OBJECT\n");
+	return 1;
+}
+
 static int merge(jx_object_t * dest, jx_object_t * src)
 {
 	switch (src->type) {
@@ -153,60 +288,10 @@ static int merge(jx_object_t * dest, jx_object_t * src)
 		return 1;
 		break;
 	case jx_type_object:
-		if (dest->type != src->type) {	/* Move src over dest */
-			if (jx_moveOver(dest, src))
-				goto errmov;
-		} else {	/* Check indicators, and if nothing else then
-				 * iterate properties and call recursive */
-			jx_object_t *srcNext = NULL, *srcNext2 =
-			    NULL, *destNext = NULL;
-
-			srcNext = src->firstChild;
-
-			while (srcNext != NULL) {
-				srcNext2 = srcNext->nextSibling;
-
-				if ((destNext =
-				     jx_locate(dest,
-					       srcNext->name)) == NULL)
-					jx_moveInto(dest, srcNext->name,
-						    srcNext);
-				else if (merge
-					 (jx_locate(dest, srcNext->name),
-					  srcNext))
-					goto errobj;
-				srcNext = srcNext2;
-			}
-
-		}
+		return mergeObject(dest, src);
 		break;
 	case jx_type_array:
-		if (dest->type != src->type) {	/* Move src over dest */
-			if (jx_moveOver(dest, src))
-				goto errmov;
-		} else {	/* Iterate array and call recursive */
-			jx_object_t *srcNext = NULL,
-			    *srcNext2 = NULL, *destNext = NULL;
-
-			srcNext = src->firstChild;
-			destNext = dest->firstChild;
-			while (srcNext != NULL) {
-				srcNext2 = srcNext->nextSibling;
-				if (destNext == NULL) {
-					if (jx_arrayPush(dest, srcNext))
-						goto errmov;
-				} else {
-					int ret = 0;
-					if ((ret =
-					     merge(destNext, srcNext)))
-						return ret;
-
-					destNext = destNext->nextSibling;
-				}
-
-				srcNext = srcNext2;
-			}
-		}
+		return mergeArray(dest, src);
 		break;
 	case jx_type_string:	/* Copy string over */
 		free(dest->value);
@@ -219,14 +304,6 @@ static int merge(jx_object_t * dest, jx_object_t * src)
 	}
 
 	return 0;
-      errobj:
-	fprintf(stderr,
-		"json_merger: failed to merge object properties\n");
-	return 1;
-      errmov:
-	fprintf(stderr,
-		"json_merger: cannot merge element without parent\n");
-	return 1;
 }
 
 static jx_object_t *recurseMerge(struct jx_mergeTree_s *mergeTree)

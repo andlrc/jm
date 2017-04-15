@@ -18,7 +18,8 @@ static jx_object_t *value(void);
 
 static void err(char expected)
 {
-	fprintf(stderr, "Expected '%c' instead of '%c' at %zu:%zu\n",
+	fprintf(stderr,
+		"json_merger: Expected '%c' instead of '%c' at %zu:%zu\n",
 		expected, *ch, (size_t) lineno, (ch - text - llineno));
 	exit(1);
 }
