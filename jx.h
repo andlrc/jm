@@ -25,7 +25,8 @@ enum jx_indicators_e {
 	jx_indicator_override,
 	jx_indicator_delete,
 	jx_indicator_match,
-	jx_indicators_id
+	jx_indicators_id,
+	jx_indicators_comment
 };
 
 /* Indicators set on objects */

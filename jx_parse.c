@@ -30,17 +30,20 @@ static enum jx_indicators_e indicator(char *key)
 		return jx_indicator_unknown;
 
 	switch (*key++) {
-	case 'e':
-		return strcmp(key, "xtends") == 0
-		    ? jx_indicator_extends : jx_indicator_unknown;
-		break;
 	case 'a':
 		return strcmp(key, "ppend") == 0
 		    ? jx_indicator_append : jx_indicator_unknown;
 		break;
-	case 'p':
-		return strcmp(key, "repend") == 0
-		    ? jx_indicator_prepend : jx_indicator_unknown;
+	case 'c':
+		return strcmp(key, "omment") == 0
+		    ? jx_indicators_comment : jx_indicator_unknown;
+	case 'd':
+		return strcmp(key, "elete") == 0
+		    ? jx_indicator_delete : jx_indicator_unknown;
+		break;
+	case 'e':
+		return strcmp(key, "xtends") == 0
+		    ? jx_indicator_extends : jx_indicator_unknown;
 		break;
 	case 'i':
 		return strcmp(key, "nsert") == 0
@@ -50,18 +53,18 @@ static enum jx_indicators_e indicator(char *key)
 		return strcmp(key, "ove") == 0
 		    ? jx_indicator_move : strcmp(key, "atch") == 0
 		    ? jx_indicator_match : jx_indicator_unknown;
-		break;
-	case 'v':
-		return strcmp(key, "alue") == 0
-		    ? jx_indicator_value : jx_indicator_unknown;
-		break;
 	case 'o':
 		return strcmp(key, "verride") == 0
 		    ? jx_indicator_override : jx_indicator_unknown;
 		break;
-	case 'd':
-		return strcmp(key, "elete") == 0
-		    ? jx_indicator_delete : jx_indicator_unknown;
+	case 'p':
+		return strcmp(key, "repend") == 0
+		    ? jx_indicator_prepend : jx_indicator_unknown;
+		break;
+		break;
+	case 'v':
+		return strcmp(key, "alue") == 0
+		    ? jx_indicator_value : jx_indicator_unknown;
 		break;
 	default:
 		return jx_indicator_unknown;
@@ -142,6 +145,9 @@ static jx_object_t *object(void)
 			/* TODO: Register node under the ID in `val->value' */
 			fprintf(stderr,
 				"json_merger: @ID isn't supported\n");
+			break;
+		case jx_indicators_comment:
+			jx_free(val);
 			break;
 		default:
 			jx_moveInto(object, key, val);
