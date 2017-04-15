@@ -100,7 +100,6 @@ static int serialize(FILE * outfh, jx_object_t * node, int flags,
 		fprintf(outfh, "{");
 		isFirst = 1;
 		next = node->firstChild;
-
 		while (next != NULL) {
 			if (!isFirst)
 				fprintf(outfh, ",");
@@ -120,13 +119,9 @@ static int serialize(FILE * outfh, jx_object_t * node, int flags,
 			serialize(outfh, next, flags, depth + 1);
 			next = next->nextSibling;
 		}
-		if (!isFirst) {
-			if (flags & JX_PRETTY)
-				fprintf(outfh, "\n");
-		}
-		if (flags & JX_PRETTY) {
+		if (!isFirst && flags & JX_PRETTY) {
 			char *ind = indent(depth);
-			fprintf(outfh, "%s", ind);
+			fprintf(outfh, "\n%s", ind);
 			free(ind);
 		}
 		fprintf(outfh, "}");
@@ -134,26 +129,28 @@ static int serialize(FILE * outfh, jx_object_t * node, int flags,
 
 	case jx_type_array:
 		fprintf(outfh, "[");
-		if (flags & JX_PRETTY)
-			fprintf(outfh, "\n");
 		next = node->firstChild;
-		while (next != NULL) {
+		if (next) {
+			if (flags & JX_PRETTY)
+				fprintf(outfh, "\n");
+			while (next != NULL) {
+				if (flags & JX_PRETTY) {
+					char *ind = indent(depth + 1);
+					fprintf(outfh, "%s", ind);
+					free(ind);
+				}
+				serialize(outfh, next, flags, depth + 1);
+				if (next->nextSibling)
+					fprintf(outfh, ",");
+				if (flags & JX_PRETTY)
+					fprintf(outfh, "\n");
+				next = next->nextSibling;
+			}
 			if (flags & JX_PRETTY) {
-				char *ind = indent(depth + 1);
+				char *ind = indent(depth);
 				fprintf(outfh, "%s", ind);
 				free(ind);
 			}
-			serialize(outfh, next, flags, depth + 1);
-			if (next->nextSibling)
-				fprintf(outfh, ",");
-			if (flags & JX_PRETTY)
-				fprintf(outfh, "\n");
-			next = next->nextSibling;
-		}
-		if (flags & JX_PRETTY) {
-			char *ind = indent(depth);
-			fprintf(outfh, "%s", ind);
-			free(ind);
 		}
 		fprintf(outfh, "]");
 		break;
