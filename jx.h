@@ -75,6 +75,6 @@ jx_object_t *jx_parseFile(char *file);
 
 jx_object_t *jx_parse(char *source);
 int jx_serialize(char *outfh, jx_object_t * node, int flags);
-jx_object_t * jx_merge(jx_object_t * dest, jx_object_t * vars);
+jx_object_t *jx_merge(jx_object_t * dest, jx_object_t * vars);
 
 #endif

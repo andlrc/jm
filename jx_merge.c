@@ -167,18 +167,21 @@ static int mergeArray(jx_object_t * dest, jx_object_t * src)
 
 		if (srcNext->type == jx_type_object) {
 			if (srcNext->indicators->append != NULL) {
-				jx_object_t *ind = srcNext->indicators->append;
+				jx_object_t *ind =
+				    srcNext->indicators->append;
 				if (ind->type != jx_type_literal)
 					goto errind;
 				if (strcmp(ind->value, "true") == 0) {
-					if (jx_arrayInsertAt(dest, 0, srcNext))
+					if (jx_arrayInsertAt
+					    (dest, 0, srcNext))
 						goto errmov;
 					goto cont;
 				}
 			}
 
 			if (srcNext->indicators->prepend != NULL) {
-				jx_object_t *ind = srcNext->indicators->prepend;
+				jx_object_t *ind =
+				    srcNext->indicators->prepend;
 				if (ind->type != jx_type_literal)
 					goto errind;
 				if (strcmp(ind->value, "true") == 0) {
@@ -189,7 +192,8 @@ static int mergeArray(jx_object_t * dest, jx_object_t * src)
 			}
 
 			if (srcNext->indicators->insert != NULL) {
-				jx_object_t *ind = srcNext->indicators->insert;
+				jx_object_t *ind =
+				    srcNext->indicators->insert;
 				if (ind->type != jx_type_literal)
 					goto errind;
 				if (jx_arrayInsertAt
