@@ -100,9 +100,6 @@ static struct jx_mergeTree_s *genTree(jx_object_t * dest,
 			    MAX_FILES)) == NULL)
 			goto err;
 
-		for (int i = 0; i < MAX_FILES; i++)
-			mergeTree->extends[i] = NULL;
-
 		char olddir[PATH_MAX], *dir = NULL;
 		dir = strdup(dest->filename);
 		if (getcwd(olddir, PATH_MAX) == NULL
@@ -253,7 +250,7 @@ static int mergeObject(jx_object_t * dest, jx_object_t * src)
 	}
 
 	if (src->indicators->override != NULL) {
-		jx_object_t *override = src->indicators->override;
+		jx_object_t *override = src->indicators->override, *next = NULL;
 		switch (override->type) {
 		case jx_type_literal:
 			/* Move over dest property */
@@ -264,8 +261,17 @@ static int mergeObject(jx_object_t * dest, jx_object_t * src)
 			}
 			break;
 		case jx_type_array:
-			/* TODO: Override properties listed in array */
-			goto errind;
+			/* Override properties listed in array.
+			 * Just delete all mentioned properties, that should do
+			 */
+			next = override->firstChild;
+			while (next != NULL) {
+				if (next->type != jx_type_string)
+					goto errind;
+
+				jx_free(jx_locate(dest, next->value));
+				next = next->nextSibling;
+			}
 			break;
 		default:
 			goto errind;
@@ -385,7 +391,6 @@ static jx_object_t *recurseMerge(struct jx_mergeTree_s *mergeTree)
 	for (int i = 1; i < size; i++)
 		jx_free(resolved[i]);
 	free(resolved);
-	freeTree(mergeTree);
 
 	return node;
 }
@@ -398,5 +403,7 @@ jx_object_t *jx_merge(jx_object_t * dest, jx_object_t * vars)
 	if (mergeTree == NULL)
 		return NULL;
 
-	return recurseMerge(mergeTree);
+	jx_object_t *result = recurseMerge(mergeTree);
+	freeTree(mergeTree);
+	return result;
 }
