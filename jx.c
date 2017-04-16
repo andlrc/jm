@@ -2,6 +2,28 @@
 #include <stdlib.h>
 #include "jx.h"
 
+struct jx_queryRule_s {
+	enum type_e {
+		rule_type_unknown,
+		rule_type_haveAttr,
+		rule_type_equal,
+		rule_type_beginsWith,
+		rule_type_endsWith,
+		rule_type_contains,
+		rule_type_all
+	} type;
+	int not;		/* Boolean */
+	int isString;		/* Boolean */
+	char *key;
+	char *value;
+	enum valueType_e {
+		rule_valueType_unknown,
+		rule_valueType_number,
+		rule_valueType_string
+	} valueType;
+	struct jx_queryRule_s *next;
+};
+
 static jx_object_t *jx_newNode(void)
 {
 	jx_object_t *node = NULL;
@@ -101,6 +123,209 @@ jx_object_t *jx_locate(jx_object_t * node, char *key)
 		next = next->nextSibling;
 
 	return next;
+}
+
+static int isNumeric(char *str)
+{
+	if (*str == '-')
+		str++;
+
+	while (*str >= '0' && *str <= '9')
+		str++;
+
+	if (*str++ == '.') {
+		while (*str >= '0' && *str <= '9')
+			str++;
+	}
+
+	if (*str == 'e' || *str == 'E') {
+		str++;
+
+		if (*str == '-' || *str == '+')
+			str++;
+
+		while (*str >= '0' && *str <= '9')
+			str++;
+	}
+
+	return *str == '\0';
+}
+
+static inline jx_object_t *query(jx_object_t * node,
+				 struct jx_queryRule_s *firstRule)
+{
+	if (node == NULL || firstRule == NULL)
+		return NULL;
+
+	return NULL;
+}
+
+jx_object_t *jx_query(jx_object_t * node, char *selector)
+{
+	if (node == NULL)
+		return NULL;
+
+	jx_object_t *ret = NULL;
+	int i = 0;
+	struct jx_queryRule_s *firstRule = NULL, *prevRule = NULL, *rule =
+	    NULL;
+
+	while (*selector != '\0') {
+		if ((rule = malloc(sizeof(struct jx_queryRule_s))) == NULL)
+			goto err;
+		if (firstRule == NULL)
+			firstRule = rule;
+		else
+			prevRule->next = rule;
+
+		rule->type = rule_type_unknown;
+		rule->not = 0;
+		rule->isString = 0;
+		rule->key = NULL;
+		rule->value = NULL;
+		rule->valueType = rule_valueType_unknown;
+		rule->next = NULL;
+
+		switch (*selector++) {
+		case '!':
+			rule->not = 1;
+			break;
+		case '[':
+			i = 0;
+			if (*selector == '"') {
+				selector++;
+				rule->isString = 1;
+			}
+
+			if ((rule->key = malloc(256)) == NULL)
+				goto err;
+
+			while (*selector != '\0'
+			       && (rule->isString ? *selector !=
+				   '"' : *selector != '='
+				   && *selector != ']')) {
+				/* Character is escaped */
+				if (*selector == '\\')
+					selector++;
+
+				rule->key[i++] = *selector++;
+			}
+
+			rule->key[i] = '\0';
+
+			if (rule->isString && *selector != '"')
+				goto err;
+
+			/* isString was set before for parsing the key, but it
+			 * really represent the value */
+			rule->isString = 0;
+
+			switch (*selector++) {
+			case ']':
+				rule->type = rule_type_haveAttr;
+				goto cont;
+				break;
+			case '=':
+				rule->type = rule_type_equal;
+				break;
+			case '^':
+				if (*selector++ != '=')
+					goto err;
+				rule->type = rule_type_beginsWith;
+				break;
+			case '$':
+				if (*selector++ != '=')
+					goto err;
+				rule->type = rule_type_endsWith;
+				break;
+			case '*':
+				if (*selector++ != '=')
+					goto err;
+				rule->type = rule_type_contains;
+				break;
+			default:
+				goto err;
+				break;
+			}
+
+			/* Find value */
+			i = 0;
+			if (*selector == '"') {
+				selector++;
+				rule->isString = 1;
+			}
+
+			if ((rule->value = malloc(256)) == NULL)
+				goto err;
+
+			while (*selector != '\0'
+			       && (rule->isString ? *selector !=
+				   '"' : *selector != '='
+				   && *selector != ']')) {
+				/* Character is escaped */
+				if (*selector == '\\')
+					selector++;
+
+				rule->value[i++] = *selector++;
+			}
+
+			rule->value[i] = '\0';
+
+			if (rule->isString && *selector != '"')
+				goto err;
+
+			if (*selector++ != ']')
+				goto err;
+		      cont:
+			break;
+		case '#':
+			/* ID match, an ID matches the following regex
+			 * [a-zA-Z0-9_] */
+			i = 0;
+			if ((rule->value = malloc(256)) == NULL)
+				goto err;
+
+			while ((*selector >= 'a' && *selector <= 'z')
+			       || (*selector >= 'A' && *selector <= 'Z')
+			       || (*selector >= '0' && *selector <= '9')
+			       || *selector == '_')
+				rule->value[i++] = *selector;
+			rule->key = strdup("id");
+			rule->type = rule_type_equal;
+			break;
+		case '*':
+			rule->type = rule_type_all;
+			break;
+		default:
+			goto err;
+			break;
+		}
+
+		prevRule = rule;
+
+		if (!rule->isString && isNumeric(rule->value))
+			rule->valueType = rule_valueType_number;
+		else
+			rule->valueType = rule_valueType_string;
+	}
+
+	ret = query(node, firstRule);
+
+	goto cleanup;
+      err:
+	ret = NULL;
+      cleanup:
+	if (firstRule != NULL) {
+		rule = firstRule;
+		while (rule != NULL) {
+			free(rule->key);
+			free(rule->value);
+			free(rule);
+
+			rule = rule->next;
+		}
+	}
+	return ret;
 }
 
 int jx_moveInto(jx_object_t * node, char *key, jx_object_t * child)

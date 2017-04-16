@@ -228,6 +228,18 @@ static int mergeObject(jx_object_t * dest, jx_object_t * src)
 	int ret = 0;
 
 	/* Check indicators */
+	if (src->indicators->match != NULL) {
+		jx_object_t *match = src->indicators->match;
+
+		/* TODO: dest could be null, we should really send parent */
+		if ((dest = jx_query(dest->parent, match->value)) == NULL) {
+			fprintf(stderr,
+				"json_merger: unrecognized selector '%s'\n",
+				match->value);
+			return 1;
+		}
+	}
+
 	if (src->indicators->delete != NULL) {
 		jx_object_t *delete = src->indicators->delete, *next =
 		    NULL;
