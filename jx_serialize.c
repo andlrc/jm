@@ -105,26 +105,27 @@ static int serialize(FILE * outfh, jx_object_t * node, int flags,
 				fprintf(outfh, ",");
 			else
 				isFirst = 0;
-			if (flags & JX_PRETTY)
-				fprintf(outfh, "\n");
+
 			escaped = escape(next->name);
+
 			if (flags & JX_PRETTY) {
 				char *ind = indent(depth + 1);
-				fprintf(outfh, "%s", ind);
+				fprintf(outfh, "\n%s%s: ", ind, escaped);
 				free(ind);
+			} else {
+				fprintf(outfh, ":%s", escaped);
 			}
-			fprintf(outfh, "%s", escaped);
 			free(escaped);
-			fprintf(outfh, flags & JX_PRETTY ? ": " : ":");
 			serialize(outfh, next, flags, depth + 1);
 			next = next->nextSibling;
 		}
 		if (!isFirst && flags & JX_PRETTY) {
 			char *ind = indent(depth);
-			fprintf(outfh, "\n%s", ind);
+			fprintf(outfh, "\n%s}", ind);
 			free(ind);
+		} else {
+			fprintf(outfh, "}");
 		}
-		fprintf(outfh, "}");
 		break;
 
 	case jx_type_array:
