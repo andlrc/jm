@@ -133,7 +133,8 @@ static int isNumeric(char *str)
 	while (*str >= '0' && *str <= '9')
 		str++;
 
-	if (*str++ == '.') {
+	if (*str == '.') {
+		str++;
 		while (*str >= '0' && *str <= '9')
 			str++;
 	}
