@@ -1,0 +1,151 @@
+json_merger(1)              General Commands Manual             json_merger(1)
+
+
+
+NAME
+       json_merger - Merge JSON files based on indicators
+
+SYNOPSIS
+       json_merger [OPTION]... [file]...
+
+DESCRIPTION
+       json_merger  is  a  way to merge JSON files based on indicators such as
+       @extends, @match, @override and @delete.
+
+
+       -o  Output suffix. Suffix added to  input  files  to  construct  output
+           files.  If left blank then stdout is used.
+
+       -p  Prettify, indent the output JSON in a human way.
+
+       -v  Set key=value variables. See PATH TEMPLATING.
+
+       -h  Show help and exit.
+
+INDICATORS
+       @extends
+           An array of path names to files which should be extended, i.e:
+
+       @override
+           An  array  or true indicating that the given property will be over-
+           ridden.  When used with true the whole property will be overridden.
+           When used with an array only the listed properties will be overrid-
+           den.
+
+       @append, @prepend, @insert
+           When working with arrays the default behaviour will be to merge  on
+           indexes, i.e.  first item in the arrays will be merged together.
+
+           Using  "@append" one can force the object to be appended at the end
+           of the destination array.
+           Using "@prepend" one can force the object to be  prepended  at  the
+           beginning of the destination array.
+           Using  "@insert"  one  can  specify  the  index at which the object
+           should be inserted.
+
+       @match
+           Match can be used to match a given item in an  array.   See  "MATCH
+           SYNTAX" for more information.
+
+       @move
+           This  indicator  is  the same as @insert, but is used together with
+           @match.
+
+       @value
+           Used together with the @insert family of indicators,  to  insert  a
+           primitive  value at a specific location.  See EXAMPLES for an exam-
+           ple.
+
+       @comment
+           These will be removed in the final output file, and is intended  to
+           be used for internal comments.
+
+       @id Global ID's that can be matched with @match.
+
+PATH TEMPLATING
+       Paths  specified  in @extends can be templated using the following syn-
+       tax: $variable and ${variable}.
+
+       See the following example:
+
+       $ cat a.json
+       { "@extends": ["${my_var}.json"], "a": 1 }
+       $ cat b.json
+       { "b": 1 }
+       $ json_merger -v my_var=b a.json
+       { "b": 1, "a": 1 }
+
+MATCH SYNTAX
+       WIP
+
+EXAMPLES
+       @extends
+           To extend the files c.json and then b.json one could write:
+
+           {
+             "@extends": ["b.json", "c.json"]
+           }
+
+       This will take c.json as the base file.  Then apply b.json on top.  And
+       finally apply the initial file on top of that output.
+
+       @override
+           Having b.json as:
+
+           {
+             "prop1": { "b": 1 }
+           }
+
+       One can override prop1 with:
+
+           {
+             "@extends": ["b.json"],
+             "prop1": { "@override": true, "a": 1 }
+           }
+
+       The same can be archived using:
+
+           {
+             "@extends": ["b.json"],
+             "@override": ["prop1"],
+             "prop1": { "a": 1 }
+           }
+
+       @insert
+           Having b.json as:
+
+           {
+             "arr": ["A", "B", "C"]
+           }
+
+       One can insert an object between A and B with:
+
+           {
+             "@extends": ["b.json"],
+             "arr": [ { "@insert": 1, "a": 1 } ]
+           }
+
+       The above will output:
+
+           {
+             "arr": ["A", { "a": 1 }, "B", "C"]
+           }
+
+       The same applies for @append and @prepend.
+
+       If  one  wants  to  insert  a primitive value, or an array, one can use
+       @value to specify the inserted value.  Taking the example from above if
+       the following was used:
+
+           {
+             "@extends": ["b.json"],
+             "arr": [ { "@insert": 1, "@value": "A2" }
+           }
+
+       The output would be:
+
+           {
+             "arr": ["A", "A2", "B", "C"]
+           }
+
+                                                                json_merger(1)

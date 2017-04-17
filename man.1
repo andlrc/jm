@@ -1,0 +1,162 @@
+.TH json_merger 1
+.SH "NAME"
+json_merger \- Merge JSON files based on indicators
+.SH "SYNOPSIS"
+json_merger [OPTION]... [file]...
+.SH "DESCRIPTION"
+json_merger is a way to merge JSON files based on indicators such as
+\fB@extends\fR, \fB@match\fR, \fB@override\fR and \fB@delete\fR.
+
+.IP "\fB-o\fR" 4
+Output suffix. Suffix added to input files to construct output files.  If left
+blank then \fBstdout\fR is used.
+.IP "\fB-p\fR" 4
+Prettify, indent the output JSON in a human way.
+.IP "\fB-v\fR" 4
+Set \fBkey=value\fR variables. See \fBPATH TEMPLATING\fB.
+.IP "\fB-h\fR" 4
+Show help and exit.
+.SH "INDICATORS"
+.IP "\fB@extends\fR" 4
+An array of path names to files which should be extended, i.e:
+.IP "\fB@override\fR" 4
+An array or \fBtrue\fR indicating that the given property will be overridden.
+When used with \fBtrue\fR the whole property will be overridden. When used with
+an array only the listed properties will be overridden.
+.IP "\fB@append\fR, \fB@prepend\fR, \fB@insert\fR" 4
+When working with arrays the default behaviour will be to merge on indexes, i.e.
+first item in the arrays will be merged together.
+
+Using "\fB@append\fR" one can force the object to be appended at the end of the
+destination array.
+.br
+Using "\fB@prepend\fR" one can force the object to be prepended at the beginning
+of the destination array.
+.br
+Using "\fB@insert\fR" one can specify the index at which the object should be
+inserted.
+.IP "\fB@match\fR" 4
+Match can be used to match a given item in an array.  See "MATCH SYNTAX" for
+more information.
+.IP "\fB@move\fR" 4
+This indicator is the same as \fB@insert\fR, but is used together with
+\fB@match\fR.
+.IP "\fB@value\fR" 4
+Used together with the \fB@insert\fR family of indicators, to insert a primitive
+value at a specific location.  See EXAMPLES for an example.
+.IP "\fB@comment\fR" 4
+These will be removed in the final output file, and is intended to be used for
+internal comments.
+.IP "\fB@id\fR" 4
+Global ID's that can be matched with \fB@match\fR.
+.SH "PATH TEMPLATING"
+Paths specified in \fB@extends\fR can be templated using the following syntax: \fB$variable\fR and \fB${variable}\fR.
+
+See the following example:
+.PP
+\&$ cat a.json
+.br
+\&{ "@extends": ["${my_var}.json"], "a": 1 }
+.br
+\&$ cat b.json
+.br
+\&{ "b": 1 }
+.br
+\&$ json_merger -v my_var=b a.json
+.br
+\&{ "b": 1, "a": 1 }
+.PP
+.SH "MATCH SYNTAX"
+WIP
+.SH "EXAMPLES"
+.IP "\fB@extends\fR" 4
+To extend the files \fBc.json\fR and then \fBb.json\fR one could write:
+.PP
+\&    {
+.br
+\&      "@extends": ["b.json", "c.json"]
+.br
+\&    }
+.PP
+This will take \fBc.json\fR as the base file.  Then apply \fBb.json\fR on top.
+And finally apply the initial file on top of that output.
+.IP "\fB@override\fR" 4
+Having \fBb.json\fR as:
+.PP
+\&    {
+.br
+\&      "prop1": { "b": 1 }
+.br
+\&    }
+.PP
+One can override \fBprop1\fR with:
+.PP
+\&    {
+.br
+\&      "@extends": ["b.json"],
+.br
+\&      "prop1": { "@override": true, "a": 1 }
+.br
+\&    }
+.PP
+The same can be archived using:
+.PP
+\&    {
+.br
+\&      "@extends": ["b.json"],
+.br
+\&      "@override": ["prop1"],
+.br
+\&      "prop1": { "a": 1 }
+.br
+\&    }
+.PP
+.IP "\fB@insert\fR" 4
+Having \fBb.json\fR as:
+.PP
+\&    {
+.br
+\&      "arr": ["A", "B", "C"]
+.br
+\&    }
+.PP
+One can insert an object between \fBA\fR and \fBB\fR with:
+.PP
+\&    {
+.br
+\&      "@extends": ["b.json"],
+.br
+\&      "arr": [ { "@insert": 1, "a": 1 } ]
+.br
+\&    }
+.PP
+The above will output:
+.PP
+\&    {
+.br
+\&      "arr": ["A", { "a": 1 }, "B", "C"]
+.br
+\&    }
+.PP
+The same applies for \fB@append\fR and \fB@prepend\fR.
+
+If one wants to insert a primitive value, or an array, one can use \fB@value\fR
+to specify the inserted value.  Taking the example from above if the following
+was used:
+.PP
+\&    {
+.br
+\&      "@extends": ["b.json"],
+.br
+\&      "arr": [ { "@insert": 1, "@value": "A2" }
+.br
+\&    }
+.PP
+The output would be:
+.PP
+\&    {
+.br
+\&      "arr": ["A", "A2", "B", "C"]
+.br
+\&    }
+.PP
