@@ -96,7 +96,7 @@ static jx_object_t *object(void)
 	/* Empty object */
 	if (*ch == '}') {
 		ch++;
-		goto finish;
+		return object;
 	}
 
 	while (*ch != '\0') {
@@ -158,7 +158,7 @@ static jx_object_t *object(void)
 
 		if (*ch == '}') {
 			ch++;
-			goto finish;
+			return object;
 		}
 
 		if (*ch != ',') {
@@ -174,8 +174,6 @@ static jx_object_t *object(void)
 	/* Error here */
 	jx_free(object);
 	return NULL;
-      finish:
-	return object;
 }
 
 static jx_object_t *array(void)
@@ -191,7 +189,7 @@ static jx_object_t *array(void)
 	/* Empty array */
 	if (*ch == ']') {
 		ch++;
-		goto finish;
+		return array;
 	}
 
 	while (ch != '\0') {
@@ -199,7 +197,7 @@ static jx_object_t *array(void)
 		white();
 		if (*ch == ']') {
 			ch++;
-			goto finish;
+			return array;
 		}
 
 		if (*ch != ',') {
@@ -211,13 +209,9 @@ static jx_object_t *array(void)
 		white();
 	}
 
-	goto err;
-
-      err:
+	/* Error here */
 	jx_free(array);
 	return NULL;
-      finish:
-	return array;
 }
 
 static char *string(void)
@@ -229,113 +223,87 @@ static char *string(void)
 	ch++;
 
 	size_t buff_size = 256;
-	size_t i = 0;
-	char *buff = NULL;
+	char *buff = NULL, *retbuff = NULL;
 
 	if ((buff = malloc(buff_size)) == NULL)
 		return NULL;
+	retbuff = buff;
 
 	while (*ch != '\0') {
 		switch (*ch) {
 		case '"':
 			ch++;
-			goto finish;
+			*buff = '\0';
+			if (strcmp(retbuff, "Publiceret") == 0)
+				return retbuff;
+			return retbuff;
 			break;
 		case '\\':
-			ch++;
-			switch (*ch) {
-			case '"':
-				/* Fallthough */
-			case '\\':
-				buff[i++] = *ch;
-				break;
-			case 'b':
-				buff[i++] = '\b';
-				break;
-			case 'f':
-				buff[i++] = '\f';
-				break;
-			case 'n':
-				buff[i++] = '\n';
-				break;
-			case 'r':
-				buff[i++] = '\r';
-				break;
-			case 't':
-				buff[i++] = '\t';
-				break;
-			default:
-				goto err;
-			}
-			break;
+			*buff++ = *ch++;
+			/* Fallthough */
 		default:
-			buff[i++] = *ch;
+			*buff++ = *ch;
 		}
 		ch++;
 
-		if (i == buff_size) {
+		/* At most two bytes is added */
+		if (buff_size - 1 <= (size_t) (buff - retbuff)) {
 			char *temp;
 			buff_size *= 2;
-			if ((temp = realloc(buff, buff_size)) == NULL)
+			if ((temp = realloc(retbuff, buff_size)) == NULL)
 				goto err;
-			buff = temp;
+			buff = temp + (buff - retbuff);
+			retbuff = temp;
 		}
 	}
 
       err:
-	free(buff);
+	free(retbuff);
 	return NULL;
-      finish:
-	buff[i] = '\0';
-	return buff;
 }
 
 static char *number(void)
 {
-	char *string = NULL;
-	int i = 0;
+	char *buff = NULL, *retbuff = NULL;
 
-	if ((string = malloc(256)) == NULL)
+	if ((buff = malloc(256)) == NULL)
 		return 0;
+	retbuff = buff;
 
 	if (*ch == '-')
-		string[i++] = *ch++;
+		*buff++ = *ch++;
 
 	while (*ch >= '0' && *ch <= '9') {
-		string[i++] = *ch;
-		ch++;
+		*buff++ = *ch++;
 	}
 
 	if (*ch == '.') {
-		string[i++] = *ch;
-		while (*(++ch) != '\0' && *ch >= '0' && *ch <= '9') {
-			string[i++] = *ch;
+		*buff++ = *ch++;
+		while (*ch != '\0' && *ch >= '0' && *ch <= '9') {
+			*buff++ = *ch++;
 		}
 	}
 
 	if (*ch == 'e' || *ch == 'E') {
-		string[i++] = *ch;
-		ch++;
+		*buff++ = *ch++;
 		if (*ch == '-' || *ch == '+')
-			string[i++] = *ch;
+			*buff++ = *ch;
 
 		while (*ch >= '0' && *ch <= '9') {
-			string[i++] = *ch;
-			ch++;
+			*buff++ = *ch++;
 		}
 	}
 
-	string[i] = '\0';
-	return string;
+	*buff = '\0';
+	return retbuff;
 }
 
 static int maybe(char *seek)
 {
-	for (size_t i = 0; seek[i] != '\0'; i++) {
-		if (ch[i] != seek[i]) {
+	char *cc = ch;
+	while (*seek != '\0')
+		if (*cc++ != *seek++)
 			return 1;
-		}
-	}
 
 	return 0;
 }
@@ -343,9 +311,14 @@ static int maybe(char *seek)
 static char *literal(void)
 {
 	/* Code buffer */
-	char *buff = NULL;
-	size_t buff_size = 256, i = 0;
-	int brackets[2] = { 0 };
+	char *buff = NULL, *retbuff = NULL;
+	size_t buff_size = 256;
+	struct brackets_s {
+		int cur;
+		int sqr;
+		int par;
+	} brackets = {
+	0};
 
 	white();
 
@@ -366,13 +339,16 @@ static char *literal(void)
 
 	if ((buff = malloc(buff_size)) == NULL)
 		return NULL;
+	retbuff = buff;
 
 	while (*ch != '\0') {
 		/* Slurp everything until a closing {curly, square} bracket
 		 * or comma. Also count pairs of opening and closing brackets */
-		if (brackets[0] == 0 && brackets[1] == 0) {
-			if (*ch == '}' || *ch == ']' || *ch == ',')
-				goto finish;
+		if (!brackets.cur && !brackets.sqr && !brackets.par) {
+			if (*ch == '}' || *ch == ']' || *ch == ',') {
+				*buff = '\0';
+				return retbuff;
+			}
 		}
 
 		switch (*ch) {
@@ -381,33 +357,41 @@ static char *literal(void)
 			llineno = (ch - text);
 			break;
 		case '{':
+			brackets.cur++;
+			break;
 		case '[':
-			brackets[*ch % 3]++;
+			brackets.sqr++;
+			break;
+		case '(':
+			brackets.par++;
 			break;
 		case '}':
+			brackets.cur--;
+			break;
 		case ']':
-			brackets[(*ch - 2) % 3]--;
+			brackets.sqr--;
+			break;
+		case ')':
+			brackets.par--;
 			break;
 		}
 
-		buff[i++] = *ch++;
+		*buff++ = *ch++;
 
-		if (i == buff_size) {
+		if (buff_size <= (size_t) (buff - retbuff)) {
 			char *temp;
 			buff_size *= 2;
-			if ((temp = realloc(buff, buff_size)) == NULL)
+			if ((temp = realloc(retbuff, buff_size)) == NULL)
 				goto err;
-			buff = temp;
+			buff = temp + (buff - retbuff);
+			retbuff = temp;
 		}
 	}
 
       err:
-	free(buff);
-	err(brackets[0] ? '}' : ']');
+	free(retbuff);
+	err(brackets.cur ? '}' : brackets.sqr ? ']' : ')');
 	return NULL;
-
-      finish:
-	return buff;
 }
 
 static jx_object_t *value(void)

@@ -8,17 +8,10 @@
 
 #define MAX_FILES 16
 
-struct jx_mergeTree_s {
-	jx_object_t *node;
-	struct jx_mergeTree_s **extends;
-	int size;
-};
-
 static int merge(jx_object_t * dest, jx_object_t * src);
 
 static int template(char *dest, char *src, jx_object_t * vars)
 {
-	size_t i = 0;
 	while (*src != '\0') {
 		if (*src == '$') {
 			char key[256];
@@ -47,105 +40,37 @@ static int template(char *dest, char *src, jx_object_t * vars)
 			if ((keyNode = jx_locate(vars, key)) == NULL)
 				return 1;
 
-			for (size_t y = 0; keyNode->value[y] != '\0'; y++) {
-				dest[i++] = keyNode->value[y];
-			}
+			while (*keyNode->value != '\0')
+				*dest++ = *keyNode->value++;
 		} else {
-			dest[i++] = *src++;
+			*dest++ = *src++;
 		}
 	}
+	*dest++ = '\0';
 	return 0;
-}
-
-static void freeTree(struct jx_mergeTree_s *mergeTree)
-{
-	struct jx_mergeTree_s **extends = NULL;
-	int size;
-
-	if (mergeTree != NULL) {
-		extends = mergeTree->extends;
-		size = mergeTree->size;
-
-		for (int i = 0; i < size; i++)
-			freeTree(extends[i]);
-
-		free(extends);
-		free(mergeTree);
-	}
-}
-
-static struct jx_mergeTree_s *genTree(jx_object_t * dest,
-				      jx_object_t * vars)
-{
-
-	struct jx_mergeTree_s *mergeTree = NULL;
-	int size = 0;
-	jx_object_t *extends = NULL, *next = NULL;
-	char *dir = NULL;
-
-	if ((mergeTree = malloc(sizeof(struct jx_mergeTree_s))) == NULL)
-		goto err;
-
-	mergeTree->node = dest;
-	mergeTree->extends = NULL;
-
-	if (dest->type != jx_type_object)
-		return mergeTree;
-
-	extends = dest->indicators->extends;
-
-	if (extends != NULL) {
-		if ((mergeTree->extends =
-		     malloc(sizeof(struct jx_mergeTree_s *) *
-			    MAX_FILES)) == NULL)
-			goto err;
-
-		char olddir[PATH_MAX], *dir = NULL;
-		dir = strdup(dest->filename);
-		if (getcwd(olddir, PATH_MAX) == NULL
-		    || dirname(dir) == NULL)
-			goto err;
-		if (strcmp(dir, dest->filename) == 0) {
-			free(dir);
-			dir = strdup(".");
-		}
-		if (chdir(dir))
-			goto err;
-
-		next = extends->firstChild;
-		while (next != NULL) {
-			char filename[PATH_MAX];
-			jx_object_t *obj = NULL;
-			if (template(filename, next->value, vars)) {
-				fprintf(stderr,
-					"json_merger: failed to template filename\n");
-				goto err;
-			}
-			if ((obj = jx_parseFile(filename)) == NULL)
-				goto err;
-			if ((mergeTree->extends[size++] =
-			     genTree(obj, vars)) == NULL)
-				goto err;
-			next = next->nextSibling;
-		}
-		if (chdir(olddir))
-			goto err;
-	}
-
-	mergeTree->size = size;
-	free(dir);
-	return mergeTree;
-
-      err:
-	/* TODO: A more graceful error handling should be made
-	 * And 'mergeTree' should potential be freeded */
-	exit(1);
-	return NULL;
 }
 
 static int mergeArray(jx_object_t * dest, jx_object_t * src)
 {
 	int ret = 0;
+
+	/* Iterate array and call recursive */
+	jx_object_t *srcNext = NULL, *srcNext2 = NULL, *destNext = NULL;
+
+	int prependIndex = 0;
+
+	/* Append, prepend and insert should happen after everyting else */
+	struct insert_s {
+		enum insertType_e {
+			jx_insertType_append,
+			jx_insertType_prepend,
+			jx_insertType_insert
+		} type;
+		int prependIndex;
+		jx_object_t *indicator;
+		jx_object_t *node;
+		struct insert_s *next;
+	} *insert = NULL, *lastInsert = NULL, *firstInsert = NULL;
 
 	/* Move src over dest */
 	if (dest->type != src->type) {
@@ -153,9 +78,6 @@ static int mergeArray(jx_object_t * dest, jx_object_t * src)
 			goto errmov;
 		return 0;
 	}
-
-	/* Iterate array and call recursive */
-	jx_object_t *srcNext = NULL, *srcNext2 = NULL, *destNext = NULL;
 
 	srcNext = src->firstChild;
 	destNext = dest->firstChild;
@@ -166,26 +88,46 @@ static int mergeArray(jx_object_t * dest, jx_object_t * src)
 			if (srcNext->indicators->append != NULL) {
 				jx_object_t *ind =
 				    srcNext->indicators->append;
-				if (ind->type != jx_type_literal)
+				if (ind->type != jx_type_literal
+				    || strcmp(ind->value, "true") != 0)
 					goto errind;
-				if (strcmp(ind->value, "true") == 0) {
-					if (jx_arrayPush(dest, srcNext))
-						goto errmov;
-					goto cont;
-				}
+				if ((insert =
+				     malloc(sizeof(struct insert_s))) ==
+				    NULL)
+					goto errind;
+				insert->type = jx_insertType_append;
+				insert->indicator = ind;
+				insert->node = srcNext;
+				insert->next = NULL;
+				if (lastInsert == NULL)
+					firstInsert = insert;
+				else
+					lastInsert->next = insert;
+				lastInsert = insert;
+				goto cont;
 			}
 
 			if (srcNext->indicators->prepend != NULL) {
 				jx_object_t *ind =
 				    srcNext->indicators->prepend;
-				if (ind->type != jx_type_literal)
+				if (ind->type != jx_type_literal
+				    || strcmp(ind->value, "true") != 0)
 					goto errind;
-				if (strcmp(ind->value, "true") == 0) {
-					if (jx_arrayInsertAt
-					    (dest, 0, srcNext))
-						goto errmov;
-					goto cont;
-				}
+				if ((insert =
+				     malloc(sizeof(struct insert_s))) ==
+				    NULL)
+					goto errind;
+				insert->type = jx_insertType_prepend;
+				insert->prependIndex = prependIndex++;
+				insert->indicator = ind;
+				insert->node = srcNext;
+				insert->next = NULL;
+				if (lastInsert == NULL)
+					firstInsert = insert;
+				else
+					lastInsert->next = insert;
+				lastInsert = insert;
+				goto cont;
 			}
 
 			if (srcNext->indicators->insert != NULL) {
@@ -193,9 +135,19 @@ static int mergeArray(jx_object_t * dest, jx_object_t * src)
 				    srcNext->indicators->insert;
 				if (ind->type != jx_type_literal)
 					goto errind;
-				if (jx_arrayInsertAt
-				    (dest, atoi(ind->value), srcNext))
-					goto errmov;
+				if ((insert =
+				     malloc(sizeof(struct insert_s))) ==
+				    NULL)
+					goto errind;
+				insert->type = jx_insertType_insert;
+				insert->indicator = ind;
+				insert->node = srcNext;
+				insert->next = NULL;
+				if (lastInsert == NULL)
+					firstInsert = insert;
+				else
+					lastInsert->next = insert;
+				lastInsert = insert;
 				goto cont;
 			}
 		}
@@ -205,7 +157,7 @@ static int mergeArray(jx_object_t * dest, jx_object_t * src)
 				goto errmov;
 		} else {
 			if ((ret = merge(destNext, srcNext)))
-				return ret;
+				goto cleanup;
 
 			destNext = destNext->nextSibling;
 		}
@@ -213,14 +165,51 @@ static int mergeArray(jx_object_t * dest, jx_object_t * src)
 		srcNext = srcNext2;
 	}
 
-	return 0;
+	insert = firstInsert;
+	while (insert != NULL) {
+		jx_object_t *ind = insert->indicator, *value = NULL;
+		if (insert->node->type == jx_type_object
+		    && insert->node->indicators->value)
+			value = insert->node->indicators->value;
+		else
+			value = insert->node;
+		switch (insert->type) {
+		case jx_insertType_append:
+			if (jx_arrayPush(dest, value))
+				goto errmov;
+			break;
+		case jx_insertType_prepend:
+			if (jx_arrayInsertAt
+			    (dest, insert->prependIndex, value))
+				goto errmov;
+			break;
+		case jx_insertType_insert:
+			if (jx_arrayInsertAt
+			    (dest, atoi(ind->value), value))
+				goto errmov;
+			break;
+		}
+		insert = insert->next;
+	}
+
+	ret = 0;
+	goto cleanup;
 
       errind:
 	fprintf(stderr, "json_merger: Error in ARRAY indicator\n");
-	return 1;
+	ret = 1;
       errmov:
 	fprintf(stderr, "json_merger: Error pushing ARRAY\n");
-	return 1;
+	ret = 1;
+      cleanup:
+	insert = firstInsert;
+	while (insert != NULL) {
+		lastInsert = insert->next;
+		free(insert);
+		insert = lastInsert;
+	}
+
+	return ret;
 }
 
 static int mergeObject(jx_object_t * dest, jx_object_t * src)
@@ -310,10 +299,26 @@ static int mergeObject(jx_object_t * dest, jx_object_t * src)
 				next = next->nextSibling;
 			}
 			break;
+		case jx_type_string:
+			/* Override single properpy */
+			jx_free(jx_locate(dest, override->value));
+			break;
 		default:
 			goto errind;
 			break;
 		}
+	}
+
+	if (src->indicators->value) {
+		jx_object_t *value = src->indicators->value, *tmp = NULL;
+
+		tmp = value;
+		src->indicators->value = NULL;
+		/* TODO: This can be a root node */
+		if (src->parent)
+			jx_free(src);
+		src = tmp;
+		return merge(dest, src);
 	}
 
 	/* Move src over dest */
@@ -334,8 +339,7 @@ static int mergeObject(jx_object_t * dest, jx_object_t * src)
 
 		if ((destNext = jx_locate(dest, srcNext->name)) == NULL)
 			jx_moveInto(dest, srcNext->name, srcNext);
-		else if ((ret =
-			  merge(jx_locate(dest, srcNext->name), srcNext)))
+		else if ((ret = merge(destNext, srcNext)))
 			return ret;
 
 		srcNext = srcNext2;
@@ -376,71 +380,68 @@ static int merge(jx_object_t * dest, jx_object_t * src)
 	return 0;
 }
 
-static jx_object_t *recurseMerge(struct jx_mergeTree_s *mergeTree)
+static jx_object_t *recurseMerge(jx_object_t * node, jx_object_t * vars)
 {
-	/* mergeTree could look like this:
-	 * { A .node = ptr, .size = 2, .extends = {
-	 *     { B .node = ptr, .size = 3, .extends = {
-	 *         { C .node = ptr },
-	 *         { D .node = ptr .size = 2, .extends = {
-	 *           { E .node = ptr }.
-	 *           { F .node = ptr }
-	 *         } }
-	 *         { G .node = pre }
-	 *       }
-	 *     },
-	 *     { H .node = ptr, .size = 3, .extends = {
-	 *       { I .node = ptr },
-	 *       { J .node = ptr },
-	 *       { K .node = ptr } } } } }
-	 *
-	 * In the above case merging would happen like this:
-	 * A < ((B < (C < ((D < (E < F)) < G))) < (H < (I < (J < K)))
-	 *
-	 * Where `<' means lvalue extends rvalue.
-	 */
+	jx_object_t *dest = NULL;
 
-	jx_object_t *node = mergeTree->node, *src = NULL, *dest = NULL;
-	struct jx_mergeTree_s **extends = mergeTree->extends;
-	int size = mergeTree->size;
-	jx_object_t **resolved = NULL;
+	if (node->indicators && node->indicators->extends) {
+		jx_object_t *next = node->indicators->extends->firstChild,
+		    *tmp = NULL, *src = NULL;
 
-	if (size == 0)
-		return node;
+		while (next != NULL) {
 
-	if ((resolved = malloc(sizeof(jx_object_t *) * size)) == NULL)
-		return NULL;
+			char olddir[PATH_MAX], *dir = NULL;
 
-	for (int i = 0; i < size; i++)
-		resolved[i] = recurseMerge(extends[i]);
+			dir = strdup(node->filename);
 
-	dest = resolved[0];
-	/* Two or more elements left to merge */
-	for (int i = 1; i < size; i++) {
-		src = resolved[i];
-		merge(dest, src);
+			getcwd(olddir, PATH_MAX);
+			dirname(dir);
+			if (strcmp(dir, node->filename) != 0)
+				chdir(dir);
+
+			if ((tmp = jx_parseFile(next->value)) == NULL) {
+				jx_free(dest);
+				return NULL;
+			}
+
+			if ((src = recurseMerge(tmp, vars)) == NULL) {
+				jx_free(tmp);
+				jx_free(dest);
+				return NULL;
+			}
+
+			chdir(olddir);
+
+			jx_free(tmp);
+			if (dest == NULL)
+				dest = src->type == jx_type_array
+				    ? jx_newArray()
+				    : jx_newObject();
+			merge(dest, src);
+			jx_free(src);
+
+			next = next->nextSibling;
+		}
+
+		if (merge(dest, node)) {
+			free(dest);
+			return NULL;
+		}
+	} else {
+		dest = node->type == jx_type_array ? jx_newArray()
+		    : jx_newObject();
+
+		if (merge(dest, node)) {
+			free(dest);
+			return NULL;
+		}
 	}
 
-	/* Merge unto root node */
-	merge(dest, node);
-	node = dest;
-
-	for (int i = 1; i < size; i++)
-		jx_free(resolved[i]);
-	free(resolved);
-
-	return node;
+	return dest;
 }
 
 /* Caller should never free dest, but free the return value */
 jx_object_t *jx_merge(jx_object_t * dest, jx_object_t * vars)
 {
-	struct jx_mergeTree_s *mergeTree = genTree(dest, vars);
-
-	if (mergeTree == NULL)
-		return NULL;
-
-	jx_object_t *result = recurseMerge(mergeTree);
-	freeTree(mergeTree);
-	return result;
+	return recurseMerge(dest, vars);
 }

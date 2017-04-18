@@ -6,79 +6,53 @@
 
 static char *indent(int depth)
 {
-	char *tabs = NULL;
+	char *tabs = NULL, *rettabs = NULL;
 	int max = depth > MAX_INDENT ? MAX_INDENT : depth;
 
-	if ((tabs = malloc(max)) == NULL)
+	if ((tabs = malloc(max + 1)) == NULL)
 		return NULL;
+	rettabs = tabs;
 
-	for (int i = 0; i < max; i++)
-		tabs[i] = '\t';
+	while (max--)
+		*tabs++ = '\t';
 
-	tabs[max] = '\0';
+	*tabs = '\0';
 
-	return tabs;
+	return rettabs;
 }
 
 static char *escape(char *string)
 {
-	char *buff = NULL;
+	char *buff = NULL, *retbuff = NULL;
 	size_t buff_size = 256;
-	size_t i = 0;
 
 	if ((buff = malloc(buff_size)) == NULL)
 		return NULL;
 
-	buff[i++] = '"';
+	retbuff = buff;
+
+	*buff++ = '"';
 
 	while (*string != '\0') {
-		switch (*string) {
-		case '"':
-			buff[i++] = '\\';
-			buff[i++] = '"';
-			break;
-		case '\b':
-			buff[i++] = '\\';
-			buff[i++] = 'b';
-			break;
-		case '\f':
-			buff[i++] = '\\';
-			buff[i++] = 'f';
-			break;
-		case '\n':
-			buff[i++] = '\\';
-			buff[i++] = 'n';
-			break;
-		case '\r':
-			buff[i++] = '\\';
-			buff[i++] = 'r';
-			break;
-		case '\t':
-			buff[i++] = '\\';
-			buff[i++] = 't';
-		default:
-			buff[i++] = *string;
-			break;
-		}
-
-		string++;
+		*buff++ = *string++;
 
 		/* At most two bytes are written at once */
-		if (i + 1 >= buff_size) {
+		if (buff_size - 1 <= (size_t) (buff - retbuff)) {
 			char *temp;
 			buff_size *= 2;
-			if ((temp = realloc(buff, buff_size)) == NULL)
+			if ((temp = realloc(retbuff, buff_size)) == NULL)
 				goto err;
-			buff = temp;
+			buff = temp + (buff - retbuff);
+			retbuff = temp;
 		}
 	}
 
-	buff[i++] = '"';
-	buff[i] = '\0';
+	*buff++ = '"';
+	*buff++ = '\0';
 
-	return buff;
+	return retbuff;
       err:
-	free(buff);
+	free(retbuff);
 	return NULL;
 }
 
@@ -113,7 +87,7 @@ static int serialize(FILE * outfh, jx_object_t * node, int flags,
 				fprintf(outfh, "\n%s%s: ", ind, escaped);
 				free(ind);
 			} else {
-				fprintf(outfh, ":%s", escaped);
+				fprintf(outfh, "%s:", escaped);
 			}
 			free(escaped);
 			serialize(outfh, next, flags, depth + 1);

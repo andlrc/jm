@@ -78,12 +78,17 @@ int main(int argc, char **argv)
 	for (; i < argc; i++) {
 		char *infile = argv[i];
 		char *outfile = NULL;
+		jx_object_t *root = NULL, *out = NULL;
 
-		jx_object_t *root = jx_parseFile(infile);
-		if (root == NULL)
+		if ((root = jx_parseFile(infile)) == NULL)
 			continue;
 
-		root = jx_merge(root, vars);
+		out = jx_merge(root, vars);
+		if (out == NULL) {
+			jx_free(root);
+			return 1;
+		}
+		jx_free(root);
 
 		if (outsuffix != NULL && strcmp(infile, "-") != 0) {
 			outfile = calloc(sizeof(char),
@@ -100,9 +105,9 @@ int main(int argc, char **argv)
 			outfile = strdup("-");
 		}
 
-		jx_serialize(outfile, root, pretty ? JX_PRETTY : 0);
+		jx_serialize(outfile, out, pretty ? JX_PRETTY : 0);
+		jx_free(out);
 		free(outfile);
-		jx_free(root);
 	}
 
 	jx_free(vars);
