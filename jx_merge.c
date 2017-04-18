@@ -234,9 +234,25 @@ static int mergeObject(jx_object_t * dest, jx_object_t * src)
 		/* TODO: dest could be null, we should really send parent */
 		if ((dest = jx_query(dest->parent, match->value)) == NULL) {
 			fprintf(stderr,
-				"json_merger: unrecognized selector '%s'\n",
+				"json_merger: unrecognized or non matching selector '%s'\n",
 				match->value);
 			return 1;
+		}
+	}
+
+	if (src->indicators->move != NULL) {
+		jx_object_t *move = src->indicators->move;
+
+		switch (move->type) {
+		case jx_type_literal:
+			/* Move object to index */
+			/* TODO: dest could be null, we should really send parent */
+			return jx_arrayInsertAt(dest->parent,
+						atoi(move->value), dest);
+			break;
+		default:
+			goto errind;
+			break;
 		}
 	}
 

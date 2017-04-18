@@ -2,28 +2,6 @@
 #include <stdlib.h>
 #include "jx.h"
 
-struct jx_queryRule_s {
-	enum type_e {
-		rule_type_unknown,
-		rule_type_haveAttr,
-		rule_type_equal,
-		rule_type_beginsWith,
-		rule_type_endsWith,
-		rule_type_contains,
-		rule_type_all
-	} type;
-	int not;		/* Boolean */
-	int isString;		/* Boolean */
-	char *key;
-	char *value;
-	enum valueType_e {
-		rule_valueType_unknown,
-		rule_valueType_number,
-		rule_valueType_string
-	} valueType;
-	struct jx_queryRule_s *next;
-};
-
 static jx_object_t *jx_newNode(void)
 {
 	jx_object_t *node = NULL;
@@ -152,24 +130,39 @@ static int isNumeric(char *str)
 	return *str == '\0';
 }
 
-static inline jx_object_t *query(jx_object_t * node,
-				 struct jx_queryRule_s *firstRule)
-{
-	if (node == NULL || firstRule == NULL)
-		return NULL;
-
-	return NULL;
-}
-
 jx_object_t *jx_query(jx_object_t * node, char *selector)
 {
-	if (node == NULL)
-		return NULL;
+	struct jx_queryRule_s {
+		enum type_e {
+			rule_type_unknown,
+			rule_type_haveAttr,
+			rule_type_equal,
+			rule_type_beginsWith,
+			rule_type_endsWith,
+			rule_type_contains,
+			rule_type_all,
+			rule_type_id,
+			rule_type_directory
+		} type;
+		int not;	/* Boolean */
+		int isString;	/* Boolean */
+		char *key;
+		char *value;
+		enum valueType_e {
+			rule_valueType_unknown,
+			rule_valueType_number,
+			rule_valueType_string
+		} valueType;
+		struct jx_queryRule_s *next;
+	};
 
-	jx_object_t *ret = NULL;
+	jx_object_t *next = NULL, *ret = NULL;	/* Return value */
 	int i = 0;
 	struct jx_queryRule_s *firstRule = NULL, *prevRule = NULL, *rule =
 	    NULL;
+
+	if (node == NULL)
+		return NULL;
 
 	while (*selector != '\0') {
 		if ((rule = malloc(sizeof(struct jx_queryRule_s))) == NULL)
@@ -291,14 +284,26 @@ jx_object_t *jx_query(jx_object_t * node, char *selector)
 			       || (*selector >= '0' && *selector <= '9')
 			       || *selector == '_')
 				rule->value[i++] = *selector;
-			rule->key = strdup("id");
-			rule->type = rule_type_equal;
+			rule->value[i] = '\0';
+			rule->type = rule_type_id;
 			break;
 		case '*':
 			rule->type = rule_type_all;
 			break;
 		default:
-			goto err;
+			/* Directory like query */
+			i = 0;
+			if ((rule->value = malloc(256)) == NULL)
+				goto err;
+
+			while (*selector != '/' && *selector != '\0') {
+				rule->value[i++] = *selector++;
+			}
+			rule->value[i] = '\0';
+			rule->type = rule_type_directory;
+
+			if (*selector == '/')
+				selector++;
 			break;
 		}
 
@@ -310,8 +315,97 @@ jx_object_t *jx_query(jx_object_t * node, char *selector)
 			rule->valueType = rule_valueType_string;
 	}
 
-	ret = query(node, firstRule);
+	next = node->firstChild;
+	while (next != NULL) {
+		rule = firstRule;
+		ret = next;
+		while (rule != NULL) {
+			jx_object_t *tmpnode = NULL;
+			size_t rlen, nlen;
+			char *val;
+			if (rule->key != NULL)
+				tmpnode = jx_locate(ret, rule->key);
+			switch (rule->type) {
+			case rule_type_unknown:
+				goto err;
+				break;
+			case rule_type_haveAttr:
+				if (tmpnode == NULL)
+					goto nextnode;
+				break;
+			case rule_type_equal:
+				if (tmpnode == NULL)
+					goto nextnode;
+				if (tmpnode->type != jx_type_string
+				    && tmpnode->type != jx_type_literal)
+					goto nextnode;
+				if (strcmp(tmpnode->value, rule->value) !=
+				    0)
+					goto nextnode;
+				break;
+			case rule_type_beginsWith:
+				if (tmpnode == NULL)
+					goto nextnode;
+				if (tmpnode->type != jx_type_string
+				    && tmpnode->type != jx_type_literal)
+					goto nextnode;
+				rlen = strlen(rule->value);
+				if (strncmp
+				    (tmpnode->value, rule->value,
+				     rlen) != 0)
+					goto nextnode;
+				break;
+			case rule_type_endsWith:
+				if (tmpnode == NULL)
+					goto nextnode;
+				if (tmpnode->type != jx_type_string
+				    && tmpnode->type != jx_type_literal)
+					goto nextnode;
+				rlen = strlen(rule->value);
+				nlen = strlen(tmpnode->value);
+				if (rlen > nlen)
+					goto nextnode;
+				if (strncmp
+				    (tmpnode->value + nlen - rlen,
+				     rule->value, rlen) != 0)
+					goto nextnode;
+				break;
+			case rule_type_contains:
+				if (tmpnode == NULL)
+					goto nextnode;
+				if (tmpnode->type != jx_type_string
+				    && tmpnode->type != jx_type_literal)
+					goto nextnode;
+				val = tmpnode->value;
+				while (*val != '\0') {
+					if (strcmp(val, rule->value) == 0)
+						break;
+					val++;
+				}
+				if (*val == '\0')
+					goto nextnode;
+				break;
+			case rule_type_all:	/* No OP */
+				break;
+			case rule_type_id:
+				fprintf(stderr,
+					"json_merger: ID selector not supported\n");
+				exit(1);
+				break;
+			case rule_type_directory:	/* TODO */
+				break;
+			}
 
+			rule = rule->next;
+		}
+		break;
+	      nextnode:	/* Goto here if current node doesn't match selector */
+		next = next->nextSibling;
+		ret = NULL;
+	}
+	goto finish;
+
+      finish:			/* Use own label to illustrate that `ret' is already set */
 	goto cleanup;
       err:
 	ret = NULL;
@@ -481,10 +575,6 @@ int jx_arrayInsertAt(jx_object_t * node, int index, jx_object_t * child)
 	/* An array is a linked list */
 	if (node->type != jx_type_array)
 		return 1;
-
-	/* Already in array */
-	if (child->parent == node)
-		return 2;
 
 	jx_detach(child);
 
