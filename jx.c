@@ -161,106 +161,103 @@ static int isNumeric(char *str)
 }
 
 static jx_object_t *query(jx_object_t * node,
-			  struct jx_queryRule_s *firstRule)
+			  struct jx_queryRule_s *rule)
 {
-	jx_object_t *next = NULL, *cur = NULL, *tmpnode = NULL;
-	struct jx_queryRule_s *rule = NULL;
 	size_t rlen, nlen;
 	char *val;
 
-	if (!node || !firstRule)
+	if (!node || !rule)
 		return NULL;
 
-	next = node->firstChild;
-	while (next != NULL) {
-		rule = firstRule;
-		cur = next;
-		while (rule != NULL) {
-			if (rule->key != NULL) {
-				tmpnode = jx_locate(cur, rule->key);
-				if (!tmpnode)
-					goto nextnode;
-			}
-			switch (rule->type) {
-			case rule_type_unknown:
-				return NULL;
-				break;
-			case rule_type_haveAttr:
-				/* Everything done above */
-				break;
-			case rule_type_equal:
-				if (tmpnode->type != jx_type_string
-				    && tmpnode->type != jx_type_literal)
-					goto nextnode;
-				if (strcmp(tmpnode->value, rule->value) !=
-				    0)
-					goto nextnode;
-				break;
-			case rule_type_beginsWith:
-				if (tmpnode->type != jx_type_string
-				    && tmpnode->type != jx_type_literal)
-					goto nextnode;
-				rlen = strlen(rule->value);
-				if (strncmp
-				    (tmpnode->value, rule->value,
-				     rlen) != 0)
-					goto nextnode;
-				break;
-			case rule_type_endsWith:
-				if (tmpnode->type != jx_type_string
-				    && tmpnode->type != jx_type_literal)
-					goto nextnode;
-				rlen = strlen(rule->value);
-				nlen = strlen(tmpnode->value);
-				if (rlen > nlen)
-					goto nextnode;
-				if (strncmp
-				    (tmpnode->value + nlen - rlen,
-				     rule->value, rlen) != 0)
-					goto nextnode;
-				break;
-			case rule_type_contains:
-				if (tmpnode->type != jx_type_string
-				    && tmpnode->type != jx_type_literal)
-					goto nextnode;
-				val = tmpnode->value;
-				while (*val != '\0') {
-					if (strcmp(val, rule->value) == 0)
-						break;
-					val++;
-				}
-				if (*val == '\0')
-					goto nextnode;
-				break;
-			case rule_type_value:
-				if (cur->type != jx_type_string
-				    && cur->type != jx_type_literal)
-					goto nextnode;
+	if (node->type == jx_type_array) {
+		jx_object_t *next = NULL;
+		next = node->firstChild;
 
-				if (strcmp(cur->value, rule->value) != 0)
-					goto nextnode;
-
-			case rule_type_all:	/* No OP */
-				break;
-			case rule_type_id:
-				fprintf(stderr,
-					"json_merger: ID selector not supported\n");
-				return NULL;
-				break;
-			case rule_type_directory:
-				cur = query(tmpnode, rule->next);
-				break;
-			}
-
-			rule = rule->next;
+		while (next != NULL) {
+			if ((node = query(next, rule)) != NULL)
+				return node;
+			next = next->nextSibling;
 		}
-		break;
-	      nextnode:	/* Goto here if current node doesn't match selector */
-		next = next->nextSibling;
-		cur = NULL;
 	}
 
-	return cur;
+	while (rule != NULL) {
+		if (rule->key != NULL) {
+			node = jx_locate(node, rule->key);
+			if (!node)
+				return NULL;
+		}
+		switch (rule->type) {
+		case rule_type_unknown:
+			return NULL;
+			break;
+		case rule_type_haveAttr:
+			/* Everything done above */
+			break;
+		case rule_type_equal:
+			if (node->type != jx_type_string
+			    && node->type != jx_type_literal)
+				return NULL;
+			if (strcmp(node->value, rule->value) != 0)
+				return NULL;
+			break;
+		case rule_type_beginsWith:
+			if (node->type != jx_type_string
+				&& node->type != jx_type_literal)
+				return NULL;
+			rlen = strlen(rule->value);
+			if (strncmp(node->value, rule->value, rlen) != 0)
+				return NULL;
+			break;
+		case rule_type_endsWith:
+			if (node->type != jx_type_string
+				&& node->type != jx_type_literal)
+				return NULL;
+			rlen = strlen(rule->value);
+			nlen = strlen(node->value);
+			if (rlen > nlen)
+				return NULL;
+			if (strncmp(node->value + nlen - rlen,
+				rule->value, rlen) != 0)
+				return NULL;
+			break;
+		case rule_type_contains:
+			if (node->type != jx_type_string
+				&& node->type != jx_type_literal)
+				return NULL;
+			val = node->value;
+			while (*val != '\0') {
+				if (strcmp(val, rule->value) == 0)
+					break;
+				val++;
+			}
+			if (*val == '\0')
+				return NULL;
+			break;
+		case rule_type_value:
+			if (node->type != jx_type_string
+				&& node->type != jx_type_literal)
+				return NULL;
+
+			if (strcmp(node->value, rule->value) != 0)
+				return NULL;
+
+		case rule_type_all:	/* noop */
+			break;
+		case rule_type_id:
+			fprintf(stderr,
+				"json_merger: ID selector not supported\n");
+			return NULL;
+			break;
+		case rule_type_directory:
+			if ((node = query(node, rule->next)))
+				return node;
+			return NULL;
+		}
+
+		rule = rule->next;
+	}
+
+	return node;
 }
 
 jx_object_t *jx_query(jx_object_t * node, char *selector)
@@ -412,12 +409,14 @@ jx_object_t *jx_query(jx_object_t * node, char *selector)
 			rule->type = rule_type_all;
 			break;
 		default:
+			selector--;
 			/* Directory like query */
 			if ((buff = malloc(256)) == NULL)
 				goto err;
 			rule->key = buff;
 
-			while (*selector != '/' && *selector != '\0') {
+			while (*selector != '/' && *selector != '['
+			       && *selector != '\0') {
 				*buff++ = *selector++;
 			}
 			*buff = '\0';
@@ -448,9 +447,9 @@ jx_object_t *jx_query(jx_object_t * node, char *selector)
 		while (rule != NULL) {
 			free(rule->key);
 			free(rule->value);
-			free(rule);
-
+			prevRule = rule;
 			rule = rule->next;
+			free(prevRule);
 		}
 	}
 	return ret;
@@ -639,13 +638,12 @@ int jx_arrayInsertAt(jx_object_t * node, int index, jx_object_t * child)
 	return 0;
 }
 
-void jx_free(jx_object_t * node)
+static void jx_free2(jx_object_t *node)
 {
 	jx_object_t *next = NULL, *last = NULL;
 	struct jx_indicators_s *indicators = NULL;
 
-	if (!node)
-		return;
+	free(node->name);
 
 	switch (node->type) {
 	case jx_type_unknown:
@@ -653,25 +651,26 @@ void jx_free(jx_object_t * node)
 			"json_merger: cannot free UNKNOWN object\n");
 		break;
 	case jx_type_object:
-		/* TODO: free indicators */
 		indicators = node->indicators;
 
 		if (indicators->extends)
-			jx_free(indicators->extends);
+			jx_free2(indicators->extends);
+		if (indicators->append)
+			jx_free2(indicators->append);
 		if (indicators->prepend)
-			jx_free(indicators->prepend);
+			jx_free2(indicators->prepend);
 		if (indicators->insert)
-			jx_free(indicators->insert);
+			jx_free2(indicators->insert);
 		if (indicators->move)
-			jx_free(indicators->move);
+			jx_free2(indicators->move);
 		if (indicators->value)
-			jx_free(indicators->value);
+			jx_free2(indicators->value);
 		if (indicators->override)
-			jx_free(indicators->override);
+			jx_free2(indicators->override);
 		if (indicators->delete)
-			jx_free(indicators->delete);
+			jx_free2(indicators->delete);
 		if (indicators->match)
-			jx_free(indicators->match);
+			jx_free2(indicators->match);
 
 		free(indicators);
 
@@ -681,7 +680,7 @@ void jx_free(jx_object_t * node)
 		while (next) {
 			last = next;
 			next = last->nextSibling;
-			jx_free(last);
+			jx_free2(last);
 		}
 		break;
 	case jx_type_string:
@@ -693,9 +692,17 @@ void jx_free(jx_object_t * node)
 	if (node->filename)
 		free(node->filename);
 
+	free(node);
+}
+
+void jx_free(jx_object_t * node)
+{
+	if (!node)
+		return;
+
 	jx_detach(node);
 
-	free(node);
+	return jx_free2(node);
 }
 
 jx_object_t *jx_parseFile(char *file)

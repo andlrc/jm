@@ -218,10 +218,17 @@ static int mergeObject(jx_object_t * dest, jx_object_t * src)
 
 	/* Check indicators */
 	if (src->indicators->match != NULL) {
-		jx_object_t *match = src->indicators->match;
+		jx_object_t *match = src->indicators->match,
+			    *tmp = NULL;
 
 		/* TODO: dest could be null, we should really send parent */
-		if ((dest = jx_query(dest->parent, match->value)) == NULL) {
+		/* An object inside an array queries from the array */
+		if (dest->parent == NULL || dest->parent->type == jx_type_object)
+			tmp = dest;
+		else
+			tmp = dest->parent;
+
+		if ((dest = jx_query(tmp, match->value)) == NULL) {
 			fprintf(stderr,
 				"json_merger: unrecognized or non matching selector '%s'\n",
 				match->value);
@@ -398,6 +405,7 @@ static jx_object_t *recurseMerge(jx_object_t * node, jx_object_t * vars)
 			dirname(dir);
 			if (strcmp(dir, node->filename) != 0)
 				chdir(dir);
+			free(dir);
 
 			if ((tmp = jx_parseFile(next->value)) == NULL) {
 				jx_free(dest);
