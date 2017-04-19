@@ -29,13 +29,15 @@ an array only the listed properties will be overridden.
 When working with arrays the default behaviour will be to merge on indexes, i.e.
 first item in the arrays will be merged together.
 
-Using "\fB@append\fR" one can force the object to be appended at the end of the
+Using \fB@append\fR one can force the object to be appended at the end of the
 destination array.
-.br
-Using "\fB@prepend\fR" one can force the object to be prepended at the beginning
-of the destination array.
-.br
-Using "\fB@insert\fR" one can specify the index at which the object should be
+
+Using \fB@prepend\fR one can force the object to be prepended at the beginning
+of the destination array.  Note that \fB@prepend\fR will insert at index 0, 1, 2
+accordantly to make the JSON represent the sequence of which the nodes are
+inserted.
+
+Using \fB@insert\fR one can specify the index at which the object should be
 inserted.
 .IP "\fB@match\fR" 4
 Match can be used to match a given item in an array.  See "MATCH SYNTAX" for

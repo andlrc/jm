@@ -12,10 +12,10 @@ static int merge(jm_object_t * dest, jm_object_t * src);
 
 static int template(char *dest, char *src, jm_object_t * vars)
 {
+	char key[256], *pkey = NULL, *pval = NULL;
 	while (*src != '\0') {
 		if (*src == '$') {
-			char key[256], *val;
-			size_t y = 0;
+			pkey = key;
 			jm_object_t *keyNode = NULL;
 			src++;
 			if (*src == '{') {
@@ -23,7 +23,7 @@ static int template(char *dest, char *src, jm_object_t * vars)
 				while (*src != '}') {
 					if (*src == '\0')
 						return 1;
-					key[y++] = *src++;
+					*pkey++ = *src++;
 				}
 				src++;
 			} else {
@@ -31,15 +31,15 @@ static int template(char *dest, char *src, jm_object_t * vars)
 				       || (*src >= 'A' && *src <= 'Z')
 				       || (*src >= '0' && *src <= '9')
 				       || *src == '_') {
-					key[y++] = *src++;
+					*pkey++ = *src++;
 				}
 			}
 
-			key[y] = '\0';
+			*pkey = '\0';
 			if ((keyNode = jm_locate(vars, key)) != NULL) {
-				val = keyNode->value;
-				while (*val != '\0')
-					*dest++ = *val++;
+				pval = keyNode->value;
+				while (*pval != '\0')
+					*dest++ = *pval++;
 			}
 		} else {
 			*dest++ = *src++;
@@ -51,14 +51,15 @@ static int template(char *dest, char *src, jm_object_t * vars)
 
 static int mergeArray(jm_object_t * dest, jm_object_t * src)
 {
-	int ret = 0;
-
 	/* Iterate array and call recursive */
+	int ret = 0;
 	jm_object_t *srcNext = NULL, *srcNext2 = NULL, *destNext = NULL;
+	int prependIndex = 0;	/* Prepends should insert at index 0, 1, 2
+				   accordantly, to make it clear in the JSON how
+				   the nodes are inserted */
 
-	int prependIndex = 0;
-
-	/* Append, prepend and insert should happen after everyting else */
+	/* Append, prepend and insert should happen after everything else to
+	 * prevent applying merge on an newly inserted value */
 	struct insert_s {
 		enum insertType_e {
 			jm_insertType_append,
