@@ -160,8 +160,7 @@ static int isNumeric(char *str)
 	return *str == '\0';
 }
 
-static jx_object_t *query(jx_object_t * node,
-			  struct jx_queryRule_s *rule)
+static jx_object_t *query(jx_object_t * node, struct jx_queryRule_s *rule)
 {
 	size_t rlen, nlen;
 	char *val;
@@ -178,12 +177,15 @@ static jx_object_t *query(jx_object_t * node,
 				return node;
 			next = next->nextSibling;
 		}
+
+		return NULL;
 	}
 
 	while (rule != NULL) {
+		jx_object_t *childNode = NULL;
 		if (rule->key != NULL) {
-			node = jx_locate(node, rule->key);
-			if (!node)
+			childNode = jx_locate(node, rule->key);
+			if (!childNode)
 				return NULL;
 		}
 		switch (rule->type) {
@@ -194,37 +196,38 @@ static jx_object_t *query(jx_object_t * node,
 			/* Everything done above */
 			break;
 		case rule_type_equal:
-			if (node->type != jx_type_string
-			    && node->type != jx_type_literal)
+			if (childNode->type != jx_type_string
+			    && childNode->type != jx_type_literal)
 				return NULL;
-			if (strcmp(node->value, rule->value) != 0)
+			if (strcmp(childNode->value, rule->value) != 0)
 				return NULL;
 			break;
 		case rule_type_beginsWith:
-			if (node->type != jx_type_string
-				&& node->type != jx_type_literal)
+			if (childNode->type != jx_type_string
+			    && childNode->type != jx_type_literal)
 				return NULL;
 			rlen = strlen(rule->value);
-			if (strncmp(node->value, rule->value, rlen) != 0)
+			if (strncmp(childNode->value, rule->value, rlen) !=
+			    0)
 				return NULL;
 			break;
 		case rule_type_endsWith:
-			if (node->type != jx_type_string
-				&& node->type != jx_type_literal)
+			if (childNode->type != jx_type_string
+			    && childNode->type != jx_type_literal)
 				return NULL;
 			rlen = strlen(rule->value);
-			nlen = strlen(node->value);
+			nlen = strlen(childNode->value);
 			if (rlen > nlen)
 				return NULL;
-			if (strncmp(node->value + nlen - rlen,
-				rule->value, rlen) != 0)
+			if (strncmp(childNode->value + nlen - rlen,
+				    rule->value, rlen) != 0)
 				return NULL;
 			break;
 		case rule_type_contains:
-			if (node->type != jx_type_string
-				&& node->type != jx_type_literal)
+			if (childNode->type != jx_type_string
+			    && childNode->type != jx_type_literal)
 				return NULL;
-			val = node->value;
+			val = childNode->value;
 			while (*val != '\0') {
 				if (strcmp(val, rule->value) == 0)
 					break;
@@ -235,7 +238,7 @@ static jx_object_t *query(jx_object_t * node,
 			break;
 		case rule_type_value:
 			if (node->type != jx_type_string
-				&& node->type != jx_type_literal)
+			    && node->type != jx_type_literal)
 				return NULL;
 
 			if (strcmp(node->value, rule->value) != 0)
@@ -249,7 +252,7 @@ static jx_object_t *query(jx_object_t * node,
 			return NULL;
 			break;
 		case rule_type_directory:
-			if ((node = query(node, rule->next)))
+			if ((node = query(childNode, rule->next)))
 				return node;
 			return NULL;
 		}
@@ -413,6 +416,10 @@ jx_object_t *jx_query(jx_object_t * node, char *selector)
 			/* Directory like query */
 			if ((buff = malloc(256)) == NULL)
 				goto err;
+
+			if (*selector == '/')
+				selector++;
+
 			rule->key = buff;
 
 			while (*selector != '/' && *selector != '['
@@ -467,9 +474,7 @@ int jx_moveInto(jx_object_t * node, char *key, jx_object_t * child)
 	child->name = newkey;
 	child->parent = node;
 
-	next = node->firstChild;
-
-	if (!next) {
+	if (!(next = node->firstChild)) {
 		node->firstChild = child;
 		node->lastChild = child;
 		child->nextSibling = NULL;
@@ -518,19 +523,26 @@ int jx_detach(jx_object_t * node)
 	 * pointing (dest - 1)->nextSibling = src require an iteration. */
 	next = parent->firstChild;
 
-	if (node == parent->firstChild)
+	if (node == parent->firstChild) {
 		parent->firstChild = node->nextSibling;
+		if (node == parent->lastChild) {
+			parent->lastChild = NULL;
+			goto finish;
+		}
+	}
 
 	while (next != node && next != NULL) {
 		last = next;
 		next = next->nextSibling;
 	}
+
 	if (last != NULL) {
 		last->nextSibling = node->nextSibling;
 		if (node == parent->lastChild)
 			parent->lastChild = last;
 	}
 
+	goto finish;
 
       finish:
 	free(node->name);
@@ -549,6 +561,7 @@ int jx_moveOver(jx_object_t * dest, jx_object_t * src)
 	jx_detach(src);
 
 	src->name = dest->name != NULL ? strdup(dest->name) : NULL;
+	src->parent = dest->parent;
 
 	next = parent->firstChild;
 
@@ -638,7 +651,7 @@ int jx_arrayInsertAt(jx_object_t * node, int index, jx_object_t * child)
 	return 0;
 }
 
-static void jx_free2(jx_object_t *node)
+static void jx_free2(jx_object_t * node)
 {
 	jx_object_t *next = NULL, *last = NULL;
 	struct jx_indicators_s *indicators = NULL;

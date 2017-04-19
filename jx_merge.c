@@ -169,10 +169,12 @@ static int mergeArray(jx_object_t * dest, jx_object_t * src)
 	while (insert != NULL) {
 		jx_object_t *ind = insert->indicator, *value = NULL;
 		if (insert->node->type == jx_type_object
-		    && insert->node->indicators->value)
+		    && insert->node->indicators->value) {
 			value = insert->node->indicators->value;
-		else
+			insert->node->indicators->value = NULL;
+		} else {
 			value = insert->node;
+		}
 		switch (insert->type) {
 		case jx_insertType_append:
 			if (jx_arrayPush(dest, value))
@@ -218,12 +220,12 @@ static int mergeObject(jx_object_t * dest, jx_object_t * src)
 
 	/* Check indicators */
 	if (src->indicators->match != NULL) {
-		jx_object_t *match = src->indicators->match,
-			    *tmp = NULL;
+		jx_object_t *match = src->indicators->match, *tmp = NULL;
 
 		/* TODO: dest could be null, we should really send parent */
 		/* An object inside an array queries from the array */
-		if (dest->parent == NULL || dest->parent->type == jx_type_object)
+		if (dest->parent == NULL
+		    || dest->parent->type == jx_type_object)
 			tmp = dest;
 		else
 			tmp = dest->parent;
@@ -398,9 +400,7 @@ static jx_object_t *recurseMerge(jx_object_t * node, jx_object_t * vars)
 		while (next != NULL) {
 
 			char olddir[PATH_MAX], *dir = NULL;
-
 			dir = strdup(node->filename);
-
 			getcwd(olddir, PATH_MAX);
 			dirname(dir);
 			if (strcmp(dir, node->filename) != 0)
@@ -409,12 +409,14 @@ static jx_object_t *recurseMerge(jx_object_t * node, jx_object_t * vars)
 
 			if ((tmp = jx_parseFile(next->value)) == NULL) {
 				jx_free(dest);
+				chdir(olddir);
 				return NULL;
 			}
 
 			if ((src = recurseMerge(tmp, vars)) == NULL) {
 				jx_free(tmp);
 				jx_free(dest);
+				chdir(olddir);
 				return NULL;
 			}
 
@@ -422,11 +424,11 @@ static jx_object_t *recurseMerge(jx_object_t * node, jx_object_t * vars)
 
 			jx_free(tmp);
 			if (dest == NULL)
-				dest = src->type == jx_type_array
-				    ? jx_newArray()
-				    : jx_newObject();
-			merge(dest, src);
-			jx_free(src);
+				dest = src;
+			else {
+				merge(dest, src);
+				jx_free(src);
+			}
 
 			next = next->nextSibling;
 		}
