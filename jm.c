@@ -684,7 +684,7 @@ jm_object_t *jm_parseFile(char *file)
 	FILE *fh = strcmp(file, "-") == 0 ? stdin : fopen(file, "rb");
 	char *buff = NULL, *source = NULL;
 	size_t buff_size = 256;
-	char ch;
+	int ch;
 
 	if (!fh) {
 		fprintf(stderr, "%s: cannot access '%s'\n", PROGRAM_NAME,

@@ -20,10 +20,15 @@ static jm_object_t *value(struct jm_parser *p);
 
 static void err(struct jm_parser *p, char expected)
 {
-	fprintf(stderr,
-		"%s: Expected '%c' instead of '%c' at %zu:%zu\n",
-		PROGRAM_NAME, expected, *p->ch, p->lineno,
-		(p->ch - p->source - p->llineno));
+	size_t row = p->lineno, col = p->ch - p->source - p->llineno;
+
+	if (*p->ch == '\0')
+		fprintf(stderr, "%s: unexpected EOF at %zu:%zu\n",
+			PROGRAM_NAME, row, col);
+	else
+		fprintf(stderr,
+			"%s: expected '%c' instead of '%c' at %zu:%zu\n",
+			PROGRAM_NAME, expected, *p->ch, row, col);
 	exit(1);
 }
 
