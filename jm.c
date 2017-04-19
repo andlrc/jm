@@ -15,15 +15,9 @@ struct jm_queryRule_s {
 		rule_type_id,
 		rule_type_directory
 	} type;
-	int not;		/* Boolean */
 	int isString;		/* Boolean */
 	char *key;
 	char *value;
-	enum valueType_e {
-		rule_valueType_unknown,
-		rule_valueType_number,
-		rule_valueType_string
-	} valueType;
 	struct jm_queryRule_s *next;
 };
 
@@ -131,33 +125,6 @@ jm_object_t *jm_locate(jm_object_t * node, char *key)
 		next = next->nextSibling;
 
 	return next;
-}
-
-static int isNumeric(char *str)
-{
-	if (*str == '-')
-		str++;
-
-	while (*str >= '0' && *str <= '9')
-		str++;
-
-	if (*str == '.') {
-		str++;
-		while (*str >= '0' && *str <= '9')
-			str++;
-	}
-
-	if (*str == 'e' || *str == 'E') {
-		str++;
-
-		if (*str == '-' || *str == '+')
-			str++;
-
-		while (*str >= '0' && *str <= '9')
-			str++;
-	}
-
-	return *str == '\0';
 }
 
 static jm_object_t *query(jm_object_t * node, struct jm_queryRule_s *rule)
@@ -286,17 +253,12 @@ jm_object_t *jm_query(jm_object_t * node, char *selector)
 			prevRule->next = rule;
 
 		rule->type = rule_type_unknown;
-		rule->not = 0;
 		rule->isString = 0;
 		rule->key = NULL;
 		rule->value = NULL;
-		rule->valueType = rule_valueType_unknown;
 		rule->next = NULL;
 
 		switch (*selector++) {
-		case '!':
-			rule->not = 1;
-			break;
 		case '[':
 			if (strncmp(selector, "@value=", 7) == 0) {
 				rule->type = rule_type_value;
@@ -439,11 +401,6 @@ jm_object_t *jm_query(jm_object_t * node, char *selector)
 
 		prevRule = rule;
 
-		if (!rule->isString && rule->value != NULL
-		    && isNumeric(rule->value))
-			rule->valueType = rule_valueType_number;
-		else
-			rule->valueType = rule_valueType_string;
 	}
 
 	ret = query(node, firstRule);
@@ -655,7 +612,7 @@ int jm_arrayInsertAt(jm_object_t * node, int index, jm_object_t * child)
 	return 0;
 }
 
-static void jm_free2(jm_object_t * node)
+static void jm_free_(jm_object_t * node)
 {
 	jm_object_t *next = NULL, *last = NULL;
 	struct jm_indicators_s *indicators = NULL;
@@ -671,23 +628,23 @@ static void jm_free2(jm_object_t * node)
 		indicators = node->indicators;
 
 		if (indicators->extends)
-			jm_free2(indicators->extends);
+			jm_free_(indicators->extends);
 		if (indicators->append)
-			jm_free2(indicators->append);
+			jm_free_(indicators->append);
 		if (indicators->prepend)
-			jm_free2(indicators->prepend);
+			jm_free_(indicators->prepend);
 		if (indicators->insert)
-			jm_free2(indicators->insert);
+			jm_free_(indicators->insert);
 		if (indicators->move)
-			jm_free2(indicators->move);
+			jm_free_(indicators->move);
 		if (indicators->value)
-			jm_free2(indicators->value);
+			jm_free_(indicators->value);
 		if (indicators->override)
-			jm_free2(indicators->override);
+			jm_free_(indicators->override);
 		if (indicators->delete)
-			jm_free2(indicators->delete);
+			jm_free_(indicators->delete);
 		if (indicators->match)
-			jm_free2(indicators->match);
+			jm_free_(indicators->match);
 
 		free(indicators);
 
@@ -697,7 +654,7 @@ static void jm_free2(jm_object_t * node)
 		while (next) {
 			last = next;
 			next = last->nextSibling;
-			jm_free2(last);
+			jm_free_(last);
 		}
 		break;
 	case jm_type_string:
@@ -719,7 +676,7 @@ void jm_free(jm_object_t * node)
 
 	jm_detach(node);
 
-	return jm_free2(node);
+	return jm_free_(node);
 }
 
 jm_object_t *jm_parseFile(char *file)
