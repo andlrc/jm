@@ -36,14 +36,11 @@ static int template(char *dest, char *src, jm_object_t * vars)
 			}
 
 			key[y] = '\0';
-
-			if ((keyNode = jm_locate(vars, key)) == NULL)
-				return 1;
-
-			val = keyNode->value;
-
-			while (*val != '\0')
-				*dest++ = *val++;
+			if ((keyNode = jm_locate(vars, key)) != NULL) {
+				val = keyNode->value;
+				while (*val != '\0')
+					*dest++ = *val++;
+			}
 		} else {
 			*dest++ = *src++;
 		}

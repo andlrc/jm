@@ -94,10 +94,9 @@ int main(int argc, char **argv)
 			continue;
 
 
-		out = jm_merge(root, vars);
-		if (out == NULL) {
+		if (!(out = jm_merge(root, vars))) {
 			jm_free(root);
-			continue;
+			exit(EXIT_FAILURE);
 		}
 		jm_free(root);
 
