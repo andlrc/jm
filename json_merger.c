@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <stdio.h>
-#include "jx.h"
+#include "jm.h"
 
 static inline void print_version(void)
 {
@@ -36,12 +36,12 @@ char short_options[] = "Vhs:pv:";
 
 int main(int argc, char **argv)
 {
-	jx_object_t *vars = NULL;
+	jm_object_t *vars = NULL;
 	char *suffix = NULL, *tmpbuf, *varkey, *infile;
 	size_t suflen = 0;
 	int ch, argind, pretty = 0;
 
-	if ((vars = jx_newObject()) == NULL)
+	if ((vars = jm_newObject()) == NULL)
 		exit(EXIT_FAILURE);
 
 	while ((ch =
@@ -70,7 +70,7 @@ int main(int argc, char **argv)
 				tmpbuf++;
 			}
 			*tmpbuf++ = '\0';
-			jx_moveInto(vars, varkey, jx_newString(tmpbuf));
+			jm_moveInto(vars, varkey, jm_newString(tmpbuf));
 			free(varkey);
 			break;
 		default:
@@ -83,21 +83,21 @@ int main(int argc, char **argv)
 	infile = "-";
 
 	do {
-		jx_object_t *root = NULL, *out = NULL;
+		jm_object_t *root = NULL, *out = NULL;
 
 		if (argind < argc)
 			infile = argv[argind];
 
-		if ((root = jx_parseFile(infile)) == NULL)
+		if ((root = jm_parseFile(infile)) == NULL)
 			continue;
 
 
-		out = jx_merge(root, vars);
+		out = jm_merge(root, vars);
 		if (out == NULL) {
-			jx_free(root);
+			jm_free(root);
 			continue;
 		}
-		jx_free(root);
+		jm_free(root);
 
 		if (strcmp(infile, "-") != 0 && suffix) {
 			char *outfile = NULL;
@@ -106,16 +106,16 @@ int main(int argc, char **argv)
 				continue;
 			memcpy(outfile, infile, inlen);
 			memcpy(outfile + inlen, suffix, suflen + 1);
-			jx_serialize(outfile, out, pretty ? JX_PRETTY : 0);
+			jm_serialize(outfile, out, pretty ? JM_PRETTY : 0);
 			free(outfile);
 		} else {
-			jx_serialize("-", out, pretty ? JX_PRETTY : 0);
+			jm_serialize("-", out, pretty ? JM_PRETTY : 0);
 		}
 
-		jx_free(out);
+		jm_free(out);
 	} while (++argind < argc);
 
-	jx_free(vars);
+	jm_free(vars);
 
 	exit(EXIT_SUCCESS);
 }

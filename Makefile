@@ -1,18 +1,19 @@
 PRGDIR	= $(DESTDIR)/usr/bin
 MANDIR	= $(DESTDIR)/usr/share/man/man1
 PRGNAME	= json_merger
+VERSION	= "r$$(git rev-list --count HEAD).$$(git rev-parse --short HEAD)"
 
 CC	= gcc
 CFLAGS	= -O3 -std=c99 -D_POSIX_C_SOURCE=200809L -Wall -Werror -Wextra \
 	  -Wmissing-prototypes -Wold-style-definition \
-	  -Wno-unused-function
+	  -Wno-unused-result -Wno-unused-function \
+	  -DPROGRAM_VERSION="\"$(VERSION)\""
 
 AR	= ar
 
-CDEBUG	= -std=c99 -g -D_POSIX_C_SOURCE=200809L -DJXDEBUG
-
-CFILES	= json_merger.c jx.c jx_parse.c jx_serialize.c jx_merge.c
-HFILES	= jx.h
+CDEBUG	= -std=c99 -g -D_POSIX_C_SOURCE=200809L -DJMDEBUG
+CFILES	= json_merger.c jm.c jm_parse.c jm_serialize.c jm_merge.c
+HFILES	= jm.h
 TFILES	= $(CFILES) $(HFILES)
 OFILES	= *.o
 
@@ -20,15 +21,15 @@ OFILES	= *.o
 
 all:	$(PRGNAME)
 
-$(PRGNAME):	jx.o jx_parse.o jx_serialize.o jx_merge.o json_merger.o
+$(PRGNAME):	jm.o jm_parse.o jm_serialize.o jm_merge.o json_merger.o
 	$(CC) $(CFLAGS) -o $(PRGNAME) \
-		jx.o jx_parse.o jx_serialize.o jx_merge.o json_merger.o
+		jm.o jm_parse.o jm_serialize.o jm_merge.o json_merger.o
 
-json_merger.o:	jx.h json_merger.c
-jx.o:	jx.h jx.c
-jx_parse.o:	jx.h jx_parse.c
-jx_serialize.o:	jx.h jx_serialize.c
-jx_merge.o:	jx.h jx_merge.c
+json_merger.o:	jm.h json_merger.c
+jm.o:	jm.h jm.c
+jm_parse.o:	jm.h jm_parse.c
+jm_serialize.o:	jm.h jm_serialize.c
+jm_merge.o:	jm.h jm_merge.c
 
 # Build with Symbols
 

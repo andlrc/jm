@@ -4,19 +4,19 @@
 #include <libgen.h>
 #include <limits.h>
 #include <unistd.h>
-#include "jx.h"
+#include "jm.h"
 
 #define MAX_FILES 16
 
-static int merge(jx_object_t * dest, jx_object_t * src);
+static int merge(jm_object_t * dest, jm_object_t * src);
 
-static int template(char *dest, char *src, jx_object_t * vars)
+static int template(char *dest, char *src, jm_object_t * vars)
 {
 	while (*src != '\0') {
 		if (*src == '$') {
 			char key[256], *val;
 			size_t y = 0;
-			jx_object_t *keyNode = NULL;
+			jm_object_t *keyNode = NULL;
 			src++;
 			if (*src == '{') {
 				src++;
@@ -37,7 +37,7 @@ static int template(char *dest, char *src, jx_object_t * vars)
 
 			key[y] = '\0';
 
-			if ((keyNode = jx_locate(vars, key)) == NULL)
+			if ((keyNode = jm_locate(vars, key)) == NULL)
 				return 1;
 
 			val = keyNode->value;
@@ -52,31 +52,31 @@ static int template(char *dest, char *src, jx_object_t * vars)
 	return 0;
 }
 
-static int mergeArray(jx_object_t * dest, jx_object_t * src)
+static int mergeArray(jm_object_t * dest, jm_object_t * src)
 {
 	int ret = 0;
 
 	/* Iterate array and call recursive */
-	jx_object_t *srcNext = NULL, *srcNext2 = NULL, *destNext = NULL;
+	jm_object_t *srcNext = NULL, *srcNext2 = NULL, *destNext = NULL;
 
 	int prependIndex = 0;
 
 	/* Append, prepend and insert should happen after everyting else */
 	struct insert_s {
 		enum insertType_e {
-			jx_insertType_append,
-			jx_insertType_prepend,
-			jx_insertType_insert
+			jm_insertType_append,
+			jm_insertType_prepend,
+			jm_insertType_insert
 		} type;
 		int prependIndex;
-		jx_object_t *indicator;
-		jx_object_t *node;
+		jm_object_t *indicator;
+		jm_object_t *node;
 		struct insert_s *next;
 	} *insert = NULL, *lastInsert = NULL, *firstInsert = NULL;
 
 	/* Move src over dest */
 	if (dest->type != src->type) {
-		if (jx_moveOver(dest, src))
+		if (jm_moveOver(dest, src))
 			goto errmov;
 		return 0;
 	}
@@ -86,18 +86,18 @@ static int mergeArray(jx_object_t * dest, jx_object_t * src)
 	while (srcNext != NULL) {
 		srcNext2 = srcNext->nextSibling;
 
-		if (srcNext->type == jx_type_object) {
+		if (srcNext->type == jm_type_object) {
 			if (srcNext->indicators->append != NULL) {
-				jx_object_t *ind =
+				jm_object_t *ind =
 				    srcNext->indicators->append;
-				if (ind->type != jx_type_literal
+				if (ind->type != jm_type_literal
 				    || strcmp(ind->value, "true") != 0)
 					goto errind;
 				if ((insert =
 				     malloc(sizeof(struct insert_s))) ==
 				    NULL)
 					goto errind;
-				insert->type = jx_insertType_append;
+				insert->type = jm_insertType_append;
 				insert->indicator = ind;
 				insert->node = srcNext;
 				insert->next = NULL;
@@ -110,16 +110,16 @@ static int mergeArray(jx_object_t * dest, jx_object_t * src)
 			}
 
 			if (srcNext->indicators->prepend != NULL) {
-				jx_object_t *ind =
+				jm_object_t *ind =
 				    srcNext->indicators->prepend;
-				if (ind->type != jx_type_literal
+				if (ind->type != jm_type_literal
 				    || strcmp(ind->value, "true") != 0)
 					goto errind;
 				if ((insert =
 				     malloc(sizeof(struct insert_s))) ==
 				    NULL)
 					goto errind;
-				insert->type = jx_insertType_prepend;
+				insert->type = jm_insertType_prepend;
 				insert->prependIndex = prependIndex++;
 				insert->indicator = ind;
 				insert->node = srcNext;
@@ -133,15 +133,15 @@ static int mergeArray(jx_object_t * dest, jx_object_t * src)
 			}
 
 			if (srcNext->indicators->insert != NULL) {
-				jx_object_t *ind =
+				jm_object_t *ind =
 				    srcNext->indicators->insert;
-				if (ind->type != jx_type_literal)
+				if (ind->type != jm_type_literal)
 					goto errind;
 				if ((insert =
 				     malloc(sizeof(struct insert_s))) ==
 				    NULL)
 					goto errind;
-				insert->type = jx_insertType_insert;
+				insert->type = jm_insertType_insert;
 				insert->indicator = ind;
 				insert->node = srcNext;
 				insert->next = NULL;
@@ -155,7 +155,7 @@ static int mergeArray(jx_object_t * dest, jx_object_t * src)
 		}
 
 		if (destNext == NULL) {
-			if (jx_arrayPush(dest, srcNext))
+			if (jm_arrayPush(dest, srcNext))
 				goto errmov;
 		} else {
 			if ((ret = merge(destNext, srcNext)))
@@ -169,8 +169,8 @@ static int mergeArray(jx_object_t * dest, jx_object_t * src)
 
 	insert = firstInsert;
 	while (insert != NULL) {
-		jx_object_t *ind = insert->indicator, *value = NULL;
-		if (insert->node->type == jx_type_object
+		jm_object_t *ind = insert->indicator, *value = NULL;
+		if (insert->node->type == jm_type_object
 		    && insert->node->indicators->value) {
 			value = insert->node->indicators->value;
 			insert->node->indicators->value = NULL;
@@ -178,17 +178,17 @@ static int mergeArray(jx_object_t * dest, jx_object_t * src)
 			value = insert->node;
 		}
 		switch (insert->type) {
-		case jx_insertType_append:
-			if (jx_arrayPush(dest, value))
+		case jm_insertType_append:
+			if (jm_arrayPush(dest, value))
 				goto errmov;
 			break;
-		case jx_insertType_prepend:
-			if (jx_arrayInsertAt
+		case jm_insertType_prepend:
+			if (jm_arrayInsertAt
 			    (dest, insert->prependIndex, value))
 				goto errmov;
 			break;
-		case jx_insertType_insert:
-			if (jx_arrayInsertAt
+		case jm_insertType_insert:
+			if (jm_arrayInsertAt
 			    (dest, atoi(ind->value), value))
 				goto errmov;
 			break;
@@ -200,10 +200,10 @@ static int mergeArray(jx_object_t * dest, jx_object_t * src)
 	goto cleanup;
 
       errind:
-	fprintf(stderr, "json_merger: Error in ARRAY indicator\n");
+	fprintf(stderr, "%s: Error in ARRAY indicator\n", PROGRAM_NAME);
 	ret = 1;
       errmov:
-	fprintf(stderr, "json_merger: Error pushing ARRAY\n");
+	fprintf(stderr, "%s: Error pushing ARRAY\n", PROGRAM_NAME);
 	ret = 1;
       cleanup:
 	insert = firstInsert;
@@ -216,38 +216,38 @@ static int mergeArray(jx_object_t * dest, jx_object_t * src)
 	return ret;
 }
 
-static int mergeObject(jx_object_t * dest, jx_object_t * src)
+static int mergeObject(jm_object_t * dest, jm_object_t * src)
 {
 	int ret = 0;
 
 	/* Check indicators */
 	if (src->indicators->match != NULL) {
-		jx_object_t *match = src->indicators->match, *tmp = NULL;
+		jm_object_t *match = src->indicators->match, *tmp = NULL;
 
 		/* TODO: dest could be null, we should really send parent */
 		/* An object inside an array queries from the array */
 		if (dest->parent == NULL
-		    || dest->parent->type == jx_type_object)
+		    || dest->parent->type == jm_type_object)
 			tmp = dest;
 		else
 			tmp = dest->parent;
 
-		if ((dest = jx_query(tmp, match->value)) == NULL) {
+		if ((dest = jm_query(tmp, match->value)) == NULL) {
 			fprintf(stderr,
-				"json_merger: unrecognized or non matching selector '%s'\n",
-				match->value);
+				"%s: unrecognized or non matching selector '%s'\n",
+				PROGRAM_NAME, match->value);
 			return 1;
 		}
 	}
 
 	if (src->indicators->move != NULL) {
-		jx_object_t *move = src->indicators->move;
+		jm_object_t *move = src->indicators->move;
 
 		switch (move->type) {
-		case jx_type_literal:
+		case jm_type_literal:
 			/* Move object to index */
 			/* TODO: dest could be null, we should really send parent */
-			return jx_arrayInsertAt(dest->parent,
+			return jm_arrayInsertAt(dest->parent,
 						atoi(move->value), dest);
 			break;
 		default:
@@ -257,25 +257,25 @@ static int mergeObject(jx_object_t * dest, jx_object_t * src)
 	}
 
 	if (src->indicators->delete != NULL) {
-		jx_object_t *delete = src->indicators->delete, *next =
+		jm_object_t *delete = src->indicators->delete, *next =
 		    NULL;
 
 		switch (delete->type) {
-		case jx_type_literal:
+		case jm_type_literal:
 			/* Delete dest property */
 			if (strcmp(delete->value, "true") == 0) {
-				jx_free(dest);
+				jm_free(dest);
 				return 0;
 				break;
 			}
-		case jx_type_array:
+		case jm_type_array:
 			/* Delete properties listed in array */
 			next = delete->firstChild;
 			while (next != NULL) {
-				if (next->type != jx_type_string)
+				if (next->type != jm_type_string)
 					goto errind;
 
-				jx_free(jx_locate(dest, next->value));
+				jm_free(jm_locate(dest, next->value));
 				next = next->nextSibling;
 			}
 			break;
@@ -286,33 +286,33 @@ static int mergeObject(jx_object_t * dest, jx_object_t * src)
 	}
 
 	if (src->indicators->override != NULL) {
-		jx_object_t *override = src->indicators->override, *next =
+		jm_object_t *override = src->indicators->override, *next =
 		    NULL;
 		switch (override->type) {
-		case jx_type_literal:
+		case jm_type_literal:
 			/* Move over dest property */
 			if (strcmp(override->value, "true") == 0) {
-				if (jx_moveOver(dest, src))
+				if (jm_moveOver(dest, src))
 					goto errmov;
 				return 0;
 			}
 			break;
-		case jx_type_array:
+		case jm_type_array:
 			/* Override properties listed in array.
 			 * Just delete all mentioned properties, that should do
 			 */
 			next = override->firstChild;
 			while (next != NULL) {
-				if (next->type != jx_type_string)
+				if (next->type != jm_type_string)
 					goto errind;
 
-				jx_free(jx_locate(dest, next->value));
+				jm_free(jm_locate(dest, next->value));
 				next = next->nextSibling;
 			}
 			break;
-		case jx_type_string:
+		case jm_type_string:
 			/* Override single properpy */
-			jx_free(jx_locate(dest, override->value));
+			jm_free(jm_locate(dest, override->value));
 			break;
 		default:
 			goto errind;
@@ -321,35 +321,35 @@ static int mergeObject(jx_object_t * dest, jx_object_t * src)
 	}
 
 	if (src->indicators->value) {
-		jx_object_t *value = src->indicators->value, *tmp = NULL;
+		jm_object_t *value = src->indicators->value, *tmp = NULL;
 
 		tmp = value;
 		src->indicators->value = NULL;
 		/* TODO: This can be a root node */
 		if (src->parent)
-			jx_free(src);
+			jm_free(src);
 		src = tmp;
 		return merge(dest, src);
 	}
 
 	/* Move src over dest */
 	if (dest->type != src->type) {
-		if (jx_moveOver(dest, src))
+		if (jm_moveOver(dest, src))
 			goto errmov;
 		return 0;
 	}
 
 	/* Check indicators, and if nothing else then iterate properties and
 	 * call recursive */
-	jx_object_t *srcNext = NULL, *srcNext2 = NULL, *destNext = NULL;
+	jm_object_t *srcNext = NULL, *srcNext2 = NULL, *destNext = NULL;
 
 	srcNext = src->firstChild;
 
 	while (srcNext != NULL) {
 		srcNext2 = srcNext->nextSibling;
 
-		if ((destNext = jx_locate(dest, srcNext->name)) == NULL)
-			jx_moveInto(dest, srcNext->name, srcNext);
+		if ((destNext = jm_locate(dest, srcNext->name)) == NULL)
+			jm_moveInto(dest, srcNext->name, srcNext);
 		else if ((ret = merge(destNext, srcNext)))
 			return ret;
 
@@ -359,44 +359,44 @@ static int mergeObject(jx_object_t * dest, jx_object_t * src)
 	return 0;
 
       errind:
-	fprintf(stderr, "json_merger: Error in OBJECT indicator\n");
+	fprintf(stderr, "%s: Error in OBJECT indicator\n", PROGRAM_NAME);
 	return 1;
       errmov:
-	fprintf(stderr, "json_merger: Error moving into OBJECT\n");
+	fprintf(stderr, "%s: Error moving into OBJECT\n", PROGRAM_NAME);
 	return 1;
 }
 
-static int merge(jx_object_t * dest, jx_object_t * src)
+static int merge(jm_object_t * dest, jm_object_t * src)
 {
 	switch (src->type) {
-	case jx_type_unknown:
+	case jm_type_unknown:
 		fprintf(stderr,
-			"json_merger: cannot merge UNKNOWN type\n");
+			"%s: cannot merge UNKNOWN type\n", PROGRAM_NAME);
 		return 1;
 		break;
-	case jx_type_object:
+	case jm_type_object:
 		return mergeObject(dest, src);
 		break;
-	case jx_type_array:
+	case jm_type_array:
 		return mergeArray(dest, src);
 		break;
-	case jx_type_string:	/* Copy string over */
-		jx_moveOver(dest, src);
+	case jm_type_string:	/* Copy string over */
+		jm_moveOver(dest, src);
 		break;
-	case jx_type_literal:	/* Copy literal over */
-		jx_moveOver(dest, src);
+	case jm_type_literal:	/* Copy literal over */
+		jm_moveOver(dest, src);
 		break;
 	}
 
 	return 0;
 }
 
-static jx_object_t *recurseMerge(jx_object_t * node, jx_object_t * vars)
+static jm_object_t *recurseMerge(jm_object_t * node, jm_object_t * vars)
 {
-	jx_object_t *dest = NULL;
+	jm_object_t *dest = NULL;
 
 	if (node->indicators && node->indicators->extends) {
-		jx_object_t *next = node->indicators->extends->firstChild,
+		jm_object_t *next = node->indicators->extends->firstChild,
 		    *tmp = NULL, *src = NULL;
 
 		while (next != NULL) {
@@ -411,27 +411,27 @@ static jx_object_t *recurseMerge(jx_object_t * node, jx_object_t * vars)
 			free(dir);
 
 			template(filename, next->value, vars);
-			if ((tmp = jx_parseFile(filename)) == NULL) {
-				jx_free(dest);
+			if ((tmp = jm_parseFile(filename)) == NULL) {
+				jm_free(dest);
 				chdir(olddir);
 				return NULL;
 			}
 
 			if ((src = recurseMerge(tmp, vars)) == NULL) {
-				jx_free(tmp);
-				jx_free(dest);
+				jm_free(tmp);
+				jm_free(dest);
 				chdir(olddir);
 				return NULL;
 			}
 
 			chdir(olddir);
 
-			jx_free(tmp);
+			jm_free(tmp);
 			if (!dest) {
 				dest = src;
 			} else {
 				merge(dest, src);
-				jx_free(src);
+				jm_free(src);
 			}
 
 			next = next->nextSibling;
@@ -439,8 +439,8 @@ static jx_object_t *recurseMerge(jx_object_t * node, jx_object_t * vars)
 	}
 
 	if (!dest)
-		dest = node->type == jx_type_array ? jx_newArray()
-		    : jx_newObject();
+		dest = node->type == jm_type_array ? jm_newArray()
+		    : jm_newObject();
 
 	if (merge(dest, node)) {
 		free(dest);
@@ -451,7 +451,7 @@ static jx_object_t *recurseMerge(jx_object_t * node, jx_object_t * vars)
 }
 
 /* Caller should never free dest, but free the return value */
-jx_object_t *jx_merge(jx_object_t * dest, jx_object_t * vars)
+jm_object_t *jm_merge(jm_object_t * dest, jm_object_t * vars)
 {
 	return recurseMerge(dest, vars);
 }

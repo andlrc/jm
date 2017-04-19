@@ -1,8 +1,8 @@
 #include <string.h>
 #include <stdlib.h>
-#include "jx.h"
+#include "jm.h"
 
-struct jx_queryRule_s {
+struct jm_queryRule_s {
 	enum type_e {
 		rule_type_unknown,
 		rule_type_haveAttr,
@@ -24,18 +24,18 @@ struct jx_queryRule_s {
 		rule_valueType_number,
 		rule_valueType_string
 	} valueType;
-	struct jx_queryRule_s *next;
+	struct jm_queryRule_s *next;
 };
 
-static jx_object_t *jx_newNode(void)
+static jm_object_t *jm_newNode(void)
 {
-	jx_object_t *node = NULL;
+	jm_object_t *node = NULL;
 
-	if ((node = malloc(sizeof(jx_object_t))) == NULL) {
+	if ((node = malloc(sizeof(jm_object_t))) == NULL) {
 		return NULL;
 	}
 
-	node->type = jx_type_unknown;
+	node->type = jm_type_unknown;
 	node->name = NULL;
 	node->indicators = NULL;
 	node->value = NULL;
@@ -48,15 +48,15 @@ static jx_object_t *jx_newNode(void)
 	return node;
 }
 
-jx_object_t *jx_newObject(void)
+jm_object_t *jm_newObject(void)
 {
-	jx_object_t *node = NULL;
-	struct jx_indicators_s *indicators = NULL;
+	jm_object_t *node = NULL;
+	struct jm_indicators_s *indicators = NULL;
 
-	if ((node = jx_newNode()) == NULL)
+	if ((node = jm_newNode()) == NULL)
 		return NULL;
 
-	if ((indicators = malloc(sizeof(struct jx_indicators_s))) == NULL) {
+	if ((indicators = malloc(sizeof(struct jm_indicators_s))) == NULL) {
 		free(node);
 		return NULL;
 	}
@@ -72,57 +72,57 @@ jx_object_t *jx_newObject(void)
 	indicators->match = NULL;
 
 	node->indicators = indicators;
-	node->type = jx_type_object;
+	node->type = jm_type_object;
 
 	return node;
 }
 
-jx_object_t *jx_newArray(void)
+jm_object_t *jm_newArray(void)
 {
-	jx_object_t *node = NULL;
+	jm_object_t *node = NULL;
 
-	if ((node = jx_newNode()) == NULL)
+	if ((node = jm_newNode()) == NULL)
 		return NULL;
 
-	node->type = jx_type_array;
+	node->type = jm_type_array;
 
 	return node;
 }
 
-jx_object_t *jx_newString(char *buff)
+jm_object_t *jm_newString(char *buff)
 {
-	jx_object_t *node = NULL;
+	jm_object_t *node = NULL;
 
-	if ((node = jx_newNode()) == NULL)
+	if ((node = jm_newNode()) == NULL)
 		return NULL;
 
-	node->type = jx_type_string;
+	node->type = jm_type_string;
 	node->value = strdup(buff);
 
 	return node;
 }
 
-jx_object_t *jx_newLiteral(char *buff)
+jm_object_t *jm_newLiteral(char *buff)
 {
-	jx_object_t *node = NULL;
+	jm_object_t *node = NULL;
 
-	if ((node = jx_newNode()) == NULL)
+	if ((node = jm_newNode()) == NULL)
 		return NULL;
 
-	node->type = jx_type_literal;
+	node->type = jm_type_literal;
 	node->value = strdup(buff);
 
 	return node;
 }
 
-jx_object_t *jx_locate(jx_object_t * node, char *key)
+jm_object_t *jm_locate(jm_object_t * node, char *key)
 {
 
 	if (!key)
 		return NULL;
 
-	jx_object_t *next = NULL;
-	if (node->type != jx_type_object)
+	jm_object_t *next = NULL;
+	if (node->type != jm_type_object)
 		return NULL;
 
 	next = node->firstChild;
@@ -160,7 +160,7 @@ static int isNumeric(char *str)
 	return *str == '\0';
 }
 
-static jx_object_t *query(jx_object_t * node, struct jx_queryRule_s *rule)
+static jm_object_t *query(jm_object_t * node, struct jm_queryRule_s *rule)
 {
 	size_t rlen, nlen;
 	char *val;
@@ -168,8 +168,8 @@ static jx_object_t *query(jx_object_t * node, struct jx_queryRule_s *rule)
 	if (!node || !rule)
 		return NULL;
 
-	if (node->type == jx_type_array) {
-		jx_object_t *next = NULL;
+	if (node->type == jm_type_array) {
+		jm_object_t *next = NULL;
 		next = node->firstChild;
 
 		while (next != NULL) {
@@ -182,9 +182,9 @@ static jx_object_t *query(jx_object_t * node, struct jx_queryRule_s *rule)
 	}
 
 	while (rule != NULL) {
-		jx_object_t *childNode = NULL;
+		jm_object_t *childNode = NULL;
 		if (rule->key != NULL) {
-			childNode = jx_locate(node, rule->key);
+			childNode = jm_locate(node, rule->key);
 			if (!childNode)
 				return NULL;
 		}
@@ -196,15 +196,15 @@ static jx_object_t *query(jx_object_t * node, struct jx_queryRule_s *rule)
 			/* Everything done above */
 			break;
 		case rule_type_equal:
-			if (childNode->type != jx_type_string
-			    && childNode->type != jx_type_literal)
+			if (childNode->type != jm_type_string
+			    && childNode->type != jm_type_literal)
 				return NULL;
 			if (strcmp(childNode->value, rule->value) != 0)
 				return NULL;
 			break;
 		case rule_type_beginsWith:
-			if (childNode->type != jx_type_string
-			    && childNode->type != jx_type_literal)
+			if (childNode->type != jm_type_string
+			    && childNode->type != jm_type_literal)
 				return NULL;
 			rlen = strlen(rule->value);
 			if (strncmp(childNode->value, rule->value, rlen) !=
@@ -212,8 +212,8 @@ static jx_object_t *query(jx_object_t * node, struct jx_queryRule_s *rule)
 				return NULL;
 			break;
 		case rule_type_endsWith:
-			if (childNode->type != jx_type_string
-			    && childNode->type != jx_type_literal)
+			if (childNode->type != jm_type_string
+			    && childNode->type != jm_type_literal)
 				return NULL;
 			rlen = strlen(rule->value);
 			nlen = strlen(childNode->value);
@@ -224,8 +224,8 @@ static jx_object_t *query(jx_object_t * node, struct jx_queryRule_s *rule)
 				return NULL;
 			break;
 		case rule_type_contains:
-			if (childNode->type != jx_type_string
-			    && childNode->type != jx_type_literal)
+			if (childNode->type != jm_type_string
+			    && childNode->type != jm_type_literal)
 				return NULL;
 			val = childNode->value;
 			while (*val != '\0') {
@@ -237,8 +237,8 @@ static jx_object_t *query(jx_object_t * node, struct jx_queryRule_s *rule)
 				return NULL;
 			break;
 		case rule_type_value:
-			if (node->type != jx_type_string
-			    && node->type != jx_type_literal)
+			if (node->type != jm_type_string
+			    && node->type != jm_type_literal)
 				return NULL;
 
 			if (strcmp(node->value, rule->value) != 0)
@@ -248,7 +248,8 @@ static jx_object_t *query(jx_object_t * node, struct jx_queryRule_s *rule)
 			break;
 		case rule_type_id:
 			fprintf(stderr,
-				"json_merger: ID selector not supported\n");
+				"%s: ID selector not supported\n",
+				PROGRAM_NAME);
 			return NULL;
 			break;
 		case rule_type_directory:
@@ -263,18 +264,18 @@ static jx_object_t *query(jx_object_t * node, struct jx_queryRule_s *rule)
 	return node;
 }
 
-jx_object_t *jx_query(jx_object_t * node, char *selector)
+jm_object_t *jm_query(jm_object_t * node, char *selector)
 {
-	jx_object_t *ret = NULL;	/* Return value */
+	jm_object_t *ret = NULL;	/* Return value */
 	char *buff;
-	struct jx_queryRule_s *firstRule = NULL, *prevRule = NULL, *rule =
+	struct jm_queryRule_s *firstRule = NULL, *prevRule = NULL, *rule =
 	    NULL;
 
 	if (!node)
 		return NULL;
 
 	while (*selector != '\0') {
-		if ((rule = malloc(sizeof(struct jx_queryRule_s))) == NULL)
+		if ((rule = malloc(sizeof(struct jm_queryRule_s))) == NULL)
 			goto err;
 		if (!firstRule)
 			firstRule = rule;
@@ -462,15 +463,15 @@ jx_object_t *jx_query(jx_object_t * node, char *selector)
 	return ret;
 }
 
-int jx_moveInto(jx_object_t * node, char *key, jx_object_t * child)
+int jm_moveInto(jm_object_t * node, char *key, jm_object_t * child)
 {
-	jx_object_t *next = NULL, *last = NULL;
+	jm_object_t *next = NULL, *last = NULL;
 
-	if (node->type != jx_type_object)
+	if (node->type != jm_type_object)
 		return 1;
 
 	char *newkey = strdup(key);
-	jx_detach(child);
+	jm_detach(child);
 	child->name = newkey;
 	child->parent = node;
 
@@ -501,7 +502,7 @@ int jx_moveInto(jx_object_t * node, char *key, jx_object_t * child)
 			node->lastChild = child;
 
 		next->parent = NULL;
-		jx_free(next);
+		jm_free(next);
 
 	} else {		/* Add a new value */
 		node->lastChild->nextSibling = child;
@@ -512,9 +513,9 @@ int jx_moveInto(jx_object_t * node, char *key, jx_object_t * child)
 	return 0;
 }
 
-int jx_detach(jx_object_t * node)
+int jm_detach(jm_object_t * node)
 {
-	jx_object_t *parent = NULL, *next = NULL, *last = NULL;
+	jm_object_t *parent = NULL, *next = NULL, *last = NULL;
 	parent = node->parent;
 	if (!parent)
 		goto finish;
@@ -552,13 +553,13 @@ int jx_detach(jx_object_t * node)
 	return 0;
 }
 
-int jx_moveOver(jx_object_t * dest, jx_object_t * src)
+int jm_moveOver(jm_object_t * dest, jm_object_t * src)
 {
-	jx_object_t *parent = dest->parent, *next = NULL, *last = NULL;
+	jm_object_t *parent = dest->parent, *next = NULL, *last = NULL;
 	if (!parent)
 		return 1;
 
-	jx_detach(src);
+	jm_detach(src);
 
 	src->name = dest->name != NULL ? strdup(dest->name) : NULL;
 	src->parent = dest->parent;
@@ -580,24 +581,24 @@ int jx_moveOver(jx_object_t * dest, jx_object_t * src)
 	if (dest == parent->firstChild)
 		parent->firstChild = src;
 
-	/* Unset dest->parent to avoid screwups in jx_free -> jx_detach */
+	/* Unset dest->parent to avoid screwups in jm_free -> jm_detach */
 	dest->parent = NULL;
-	jx_free(dest);
+	jm_free(dest);
 
 	return 0;
 }
 
-int jx_arrayPush(jx_object_t * node, jx_object_t * child)
+int jm_arrayPush(jm_object_t * node, jm_object_t * child)
 {
 	/* An array is a linked list */
-	if (node->type != jx_type_array)
+	if (node->type != jm_type_array)
 		return 1;
 
 	/* Already in array */
 	if (child->parent == node)
 		return 2;
 
-	jx_detach(child);
+	jm_detach(child);
 
 	child->parent = node;
 	child->nextSibling = NULL;
@@ -613,13 +614,13 @@ int jx_arrayPush(jx_object_t * node, jx_object_t * child)
 	return 0;
 }
 
-int jx_arrayInsertAt(jx_object_t * node, int index, jx_object_t * child)
+int jm_arrayInsertAt(jm_object_t * node, int index, jm_object_t * child)
 {
 	/* An array is a linked list */
-	if (node->type != jx_type_array)
+	if (node->type != jm_type_array)
 		return 1;
 
-	jx_detach(child);
+	jm_detach(child);
 
 	child->parent = node;
 
@@ -627,7 +628,7 @@ int jx_arrayInsertAt(jx_object_t * node, int index, jx_object_t * child)
 		node->firstChild = child;
 		node->lastChild = child;
 	} else {
-		jx_object_t *next = NULL, *last = NULL;
+		jm_object_t *next = NULL, *last = NULL;
 		next = node->firstChild;
 
 		for (int i = 0; i < index; i++) {
@@ -651,53 +652,53 @@ int jx_arrayInsertAt(jx_object_t * node, int index, jx_object_t * child)
 	return 0;
 }
 
-static void jx_free2(jx_object_t * node)
+static void jm_free2(jm_object_t * node)
 {
-	jx_object_t *next = NULL, *last = NULL;
-	struct jx_indicators_s *indicators = NULL;
+	jm_object_t *next = NULL, *last = NULL;
+	struct jm_indicators_s *indicators = NULL;
 
 	free(node->name);
 
 	switch (node->type) {
-	case jx_type_unknown:
+	case jm_type_unknown:
 		fprintf(stderr,
-			"json_merger: cannot free UNKNOWN object\n");
+			"%s: cannot free UNKNOWN object\n", PROGRAM_NAME);
 		break;
-	case jx_type_object:
+	case jm_type_object:
 		indicators = node->indicators;
 
 		if (indicators->extends)
-			jx_free2(indicators->extends);
+			jm_free2(indicators->extends);
 		if (indicators->append)
-			jx_free2(indicators->append);
+			jm_free2(indicators->append);
 		if (indicators->prepend)
-			jx_free2(indicators->prepend);
+			jm_free2(indicators->prepend);
 		if (indicators->insert)
-			jx_free2(indicators->insert);
+			jm_free2(indicators->insert);
 		if (indicators->move)
-			jx_free2(indicators->move);
+			jm_free2(indicators->move);
 		if (indicators->value)
-			jx_free2(indicators->value);
+			jm_free2(indicators->value);
 		if (indicators->override)
-			jx_free2(indicators->override);
+			jm_free2(indicators->override);
 		if (indicators->delete)
-			jx_free2(indicators->delete);
+			jm_free2(indicators->delete);
 		if (indicators->match)
-			jx_free2(indicators->match);
+			jm_free2(indicators->match);
 
 		free(indicators);
 
 		/* Fallthough */
-	case jx_type_array:
+	case jm_type_array:
 		next = node->firstChild;
 		while (next) {
 			last = next;
 			next = last->nextSibling;
-			jx_free2(last);
+			jm_free2(last);
 		}
 		break;
-	case jx_type_string:
-	case jx_type_literal:
+	case jm_type_string:
+	case jm_type_literal:
 		free(node->value);
 		break;
 	}
@@ -708,17 +709,17 @@ static void jx_free2(jx_object_t * node)
 	free(node);
 }
 
-void jx_free(jx_object_t * node)
+void jm_free(jm_object_t * node)
 {
 	if (!node)
 		return;
 
-	jx_detach(node);
+	jm_detach(node);
 
-	return jx_free2(node);
+	return jm_free2(node);
 }
 
-jx_object_t *jx_parseFile(char *file)
+jm_object_t *jm_parseFile(char *file)
 {
 	FILE *fh = strcmp(file, "-") == 0 ? stdin : fopen(file, "rb");
 	char *buff = NULL, *source = NULL;
@@ -726,7 +727,8 @@ jx_object_t *jx_parseFile(char *file)
 	char ch;
 
 	if (!fh) {
-		fprintf(stderr, "json_merger: cannot access '%s'\n", file);
+		fprintf(stderr, "%s: cannot access '%s'\n", PROGRAM_NAME,
+			file);
 		goto err;
 	}
 	if ((buff = malloc(buff_size)) == NULL)
@@ -747,7 +749,7 @@ jx_object_t *jx_parseFile(char *file)
 
 	*buff = '\0';
 
-	jx_object_t *node = jx_parse(source);
+	jm_object_t *node = jm_parse(source);
 	free(source);
 	if (fh != stdin)
 		fclose(fh);

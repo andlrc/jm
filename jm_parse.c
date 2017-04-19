@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include "jx.h"
+#include "jm.h"
 
 static char *text;		/* Used for error messages, contains original source to parse */
 static char *ch;		/* The current character */
@@ -9,65 +9,66 @@ static size_t lineno;		/* Contains numbers of lines */
 static size_t llineno;		/* Contains offset for where last lineno is */
 
 static void white(void);
-static jx_object_t *object(void);
-static jx_object_t *array(void);
+static jm_object_t *object(void);
+static jm_object_t *array(void);
 static char *string(void);
 static char *number(void);
 static char *literal(void);
-static jx_object_t *value(void);
+static jm_object_t *value(void);
 
 static void err(char expected)
 {
 	fprintf(stderr,
-		"json_merger: Expected '%c' instead of '%c' at %zu:%zu\n",
-		expected, *ch, (size_t) lineno, (ch - text - llineno));
+		"%s: Expected '%c' instead of '%c' at %zu:%zu\n",
+		PROGRAM_NAME, expected, *ch, (size_t) lineno,
+		(ch - text - llineno));
 	exit(1);
 }
 
-static enum jx_indicators_e indicator(char *key)
+static enum jm_indicators_e indicator(char *key)
 {
 	if (*key++ != '@')
-		return jx_indicator_unknown;
+		return jm_indicator_unknown;
 
 	switch (*key++) {
 	case 'a':
 		return strcmp(key, "ppend") == 0
-		    ? jx_indicator_append : jx_indicator_unknown;
+		    ? jm_indicator_append : jm_indicator_unknown;
 		break;
 	case 'c':
 		return strcmp(key, "omment") == 0
-		    ? jx_indicators_comment : jx_indicator_unknown;
+		    ? jm_indicators_comment : jm_indicator_unknown;
 	case 'd':
 		return strcmp(key, "elete") == 0
-		    ? jx_indicator_delete : jx_indicator_unknown;
+		    ? jm_indicator_delete : jm_indicator_unknown;
 		break;
 	case 'e':
 		return strcmp(key, "xtends") == 0
-		    ? jx_indicator_extends : jx_indicator_unknown;
+		    ? jm_indicator_extends : jm_indicator_unknown;
 		break;
 	case 'i':
 		return strcmp(key, "nsert") == 0
-		    ? jx_indicator_insert : jx_indicator_unknown;
+		    ? jm_indicator_insert : jm_indicator_unknown;
 		break;
 	case 'm':
 		return strcmp(key, "ove") == 0
-		    ? jx_indicator_move : strcmp(key, "atch") == 0
-		    ? jx_indicator_match : jx_indicator_unknown;
+		    ? jm_indicator_move : strcmp(key, "atch") == 0
+		    ? jm_indicator_match : jm_indicator_unknown;
 	case 'o':
 		return strcmp(key, "verride") == 0
-		    ? jx_indicator_override : jx_indicator_unknown;
+		    ? jm_indicator_override : jm_indicator_unknown;
 		break;
 	case 'p':
 		return strcmp(key, "repend") == 0
-		    ? jx_indicator_prepend : jx_indicator_unknown;
+		    ? jm_indicator_prepend : jm_indicator_unknown;
 		break;
 		break;
 	case 'v':
 		return strcmp(key, "alue") == 0
-		    ? jx_indicator_value : jx_indicator_unknown;
+		    ? jm_indicator_value : jm_indicator_unknown;
 		break;
 	default:
-		return jx_indicator_unknown;
+		return jm_indicator_unknown;
 	}
 }
 
@@ -83,14 +84,14 @@ static inline void white(void)
 	}
 }
 
-static jx_object_t *object(void)
+static jm_object_t *object(void)
 {
 	if (*ch != '{') {
 		err('{');
 		return NULL;
 	}
 	ch++;
-	jx_object_t *object = jx_newObject();
+	jm_object_t *object = jm_newObject();
 	white();
 
 	/* Empty object */
@@ -105,52 +106,52 @@ static jx_object_t *object(void)
 
 		white();
 		if (*ch != ':') {
-			jx_free(object);
+			jm_free(object);
 			free(key);
 			err(':');
 			return NULL;
 		}
 		ch++;
-		jx_object_t *val = value();
+		jm_object_t *val = value();
 
 		switch (indicator(key)) {
-		case jx_indicator_extends:
+		case jm_indicator_extends:
 			object->indicators->extends = val;
 			break;
-		case jx_indicator_append:
+		case jm_indicator_append:
 			object->indicators->append = val;
 			break;
-		case jx_indicator_prepend:
+		case jm_indicator_prepend:
 			object->indicators->prepend = val;
 			break;
-		case jx_indicator_insert:
+		case jm_indicator_insert:
 			object->indicators->insert = val;
 			break;
-		case jx_indicator_move:
+		case jm_indicator_move:
 			object->indicators->move = val;
 			break;
-		case jx_indicator_value:
+		case jm_indicator_value:
 			object->indicators->value = val;
 			break;
-		case jx_indicator_override:
+		case jm_indicator_override:
 			object->indicators->override = val;
 			break;
-		case jx_indicator_delete:
+		case jm_indicator_delete:
 			object->indicators->delete = val;
 			break;
-		case jx_indicator_match:
+		case jm_indicator_match:
 			object->indicators->match = val;
 			break;
-		case jx_indicators_id:
+		case jm_indicators_id:
 			/* TODO: Register node under the ID in `val->value' */
 			fprintf(stderr,
-				"json_merger: @ID isn't supported\n");
+				"%s: @ID isn't supported\n", PROGRAM_NAME);
 			break;
-		case jx_indicators_comment:
-			jx_free(val);
+		case jm_indicators_comment:
+			jm_free(val);
 			break;
 		default:
-			jx_moveInto(object, key, val);
+			jm_moveInto(object, key, val);
 		}
 
 		free(key);
@@ -162,7 +163,7 @@ static jx_object_t *object(void)
 		}
 
 		if (*ch != ',') {
-			jx_free(object);
+			jm_free(object);
 			err(',');
 			return NULL;
 		}
@@ -172,18 +173,18 @@ static jx_object_t *object(void)
 	}
 
 	/* Error here */
-	jx_free(object);
+	jm_free(object);
 	return NULL;
 }
 
-static jx_object_t *array(void)
+static jm_object_t *array(void)
 {
 	if (*ch != '[') {
 		err('[');
 		return NULL;
 	}
 	ch++;
-	jx_object_t *array = jx_newArray();
+	jm_object_t *array = jm_newArray();
 	white();
 
 	/* Empty array */
@@ -193,7 +194,7 @@ static jx_object_t *array(void)
 	}
 
 	while (ch != '\0') {
-		jx_arrayPush(array, value());
+		jm_arrayPush(array, value());
 		white();
 		if (*ch == ']') {
 			ch++;
@@ -201,7 +202,7 @@ static jx_object_t *array(void)
 		}
 
 		if (*ch != ',') {
-			jx_free(array);
+			jm_free(array);
 			err(',');
 			return NULL;
 		}
@@ -210,7 +211,7 @@ static jx_object_t *array(void)
 	}
 
 	/* Error here */
-	jx_free(array);
+	jm_free(array);
 	return NULL;
 }
 
@@ -394,9 +395,9 @@ static char *literal(void)
 	return NULL;
 }
 
-static jx_object_t *value(void)
+static jm_object_t *value(void)
 {
-	jx_object_t *node;
+	jm_object_t *node;
 	char *str;
 	white();
 
@@ -409,26 +410,26 @@ static jx_object_t *value(void)
 		break;
 	case '"':
 		str = string();
-		node = jx_newString(str);
+		node = jm_newString(str);
 		free(str);
 		break;
 	case '-':
 		str = number();
-		node = jx_newLiteral(str);
+		node = jm_newLiteral(str);
 		free(str);
 		break;
 	default:
 		str = *ch >= '0' && *ch <= '9' ? number() : literal();
-		node = jx_newLiteral(str);
+		node = jm_newLiteral(str);
 		free(str);
 		break;
 	}
 	return node;
 }
 
-jx_object_t *jx_parse(char *source)
+jm_object_t *jm_parse(char *source)
 {
-	jx_object_t *result;
+	jm_object_t *result;
 
 	lineno = 1;
 	llineno = 0;
@@ -437,8 +438,8 @@ jx_object_t *jx_parse(char *source)
 	result = value();
 	white();
 	if (*ch != '\0') {
-		fprintf(stderr, "json_merger: syntax errror\n");
-		jx_free(result);
+		fprintf(stderr, "%s: syntax errror\n", PROGRAM_NAME);
+		jm_free(result);
 		return NULL;
 	}
 

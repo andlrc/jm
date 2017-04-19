@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include "jx.h"
+#include "jm.h"
 #define MAX_INDENT 32
 
 static char *indent(int depth)
@@ -56,21 +56,22 @@ static char *escape(char *string)
 	return NULL;
 }
 
-static int serialize(FILE * outfh, jx_object_t * node, int flags,
+static int serialize(FILE * outfh, jm_object_t * node, int flags,
 		     int depth)
 {
 	char *escaped;
 	int isFirst;
-	jx_object_t *next;
+	jm_object_t *next;
 
 	switch (node->type) {
-	case jx_type_unknown:
+	case jm_type_unknown:
 		fprintf(stderr,
-			"json_merger: Cannot serialize type UNKNOWN\n");
+			"%s: Cannot serialize type UNKNOWN\n",
+			PROGRAM_NAME);
 		return 1;
 		break;
 
-	case jx_type_object:
+	case jm_type_object:
 		fprintf(outfh, "{");
 		isFirst = 1;
 		next = node->firstChild;
@@ -82,7 +83,7 @@ static int serialize(FILE * outfh, jx_object_t * node, int flags,
 
 			escaped = escape(next->name);
 
-			if (flags & JX_PRETTY) {
+			if (flags & JM_PRETTY) {
 				char *ind = indent(depth + 1);
 				fprintf(outfh, "\n%s%s: ", ind, escaped);
 				free(ind);
@@ -93,7 +94,7 @@ static int serialize(FILE * outfh, jx_object_t * node, int flags,
 			serialize(outfh, next, flags, depth + 1);
 			next = next->nextSibling;
 		}
-		if (!isFirst && flags & JX_PRETTY) {
+		if (!isFirst && flags & JM_PRETTY) {
 			char *ind = indent(depth);
 			fprintf(outfh, "\n%s}", ind);
 			free(ind);
@@ -102,14 +103,14 @@ static int serialize(FILE * outfh, jx_object_t * node, int flags,
 		}
 		break;
 
-	case jx_type_array:
+	case jm_type_array:
 		fprintf(outfh, "[");
 		next = node->firstChild;
 		if (next) {
-			if (flags & JX_PRETTY)
+			if (flags & JM_PRETTY)
 				fprintf(outfh, "\n");
 			while (next != NULL) {
-				if (flags & JX_PRETTY) {
+				if (flags & JM_PRETTY) {
 					char *ind = indent(depth + 1);
 					fprintf(outfh, "%s", ind);
 					free(ind);
@@ -117,11 +118,11 @@ static int serialize(FILE * outfh, jx_object_t * node, int flags,
 				serialize(outfh, next, flags, depth + 1);
 				if (next->nextSibling)
 					fprintf(outfh, ",");
-				if (flags & JX_PRETTY)
+				if (flags & JM_PRETTY)
 					fprintf(outfh, "\n");
 				next = next->nextSibling;
 			}
-			if (flags & JX_PRETTY) {
+			if (flags & JM_PRETTY) {
 				char *ind = indent(depth);
 				fprintf(outfh, "%s", ind);
 				free(ind);
@@ -130,13 +131,13 @@ static int serialize(FILE * outfh, jx_object_t * node, int flags,
 		fprintf(outfh, "]");
 		break;
 
-	case jx_type_string:
+	case jm_type_string:
 		escaped = escape(node->value);
 		fprintf(outfh, "%s", escaped);
 		free(escaped);
 		break;
 
-	case jx_type_literal:
+	case jm_type_literal:
 		fprintf(outfh, "%s", node->value);
 		break;
 	}
@@ -144,11 +145,12 @@ static int serialize(FILE * outfh, jx_object_t * node, int flags,
 	return 0;
 }
 
-int jx_serialize(char *file, jx_object_t * node, int flags)
+int jm_serialize(char *file, jm_object_t * node, int flags)
 {
 	FILE *fh = strcmp(file, "-") == 0 ? stdout : fopen(file, "wb");
 	if (fh == NULL) {
-		fprintf(stderr, "json_merger: cannot create '%s'\n", file);
+		fprintf(stderr, "%s: cannot create '%s'\n", PROGRAM_NAME,
+			file);
 		goto err;
 	}
 	if (node == NULL)
