@@ -14,7 +14,7 @@ static int template(char *dest, char *src, jx_object_t * vars)
 {
 	while (*src != '\0') {
 		if (*src == '$') {
-			char key[256];
+			char key[256], *val;
 			size_t y = 0;
 			jx_object_t *keyNode = NULL;
 			src++;
@@ -40,8 +40,10 @@ static int template(char *dest, char *src, jx_object_t * vars)
 			if ((keyNode = jx_locate(vars, key)) == NULL)
 				return 1;
 
-			while (*keyNode->value != '\0')
-				*dest++ = *keyNode->value++;
+			val = keyNode->value;
+
+			while (*val != '\0')
+				*dest++ = *val++;
 		} else {
 			*dest++ = *src++;
 		}
@@ -399,7 +401,8 @@ static jx_object_t *recurseMerge(jx_object_t * node, jx_object_t * vars)
 
 		while (next != NULL) {
 
-			char olddir[PATH_MAX], *dir = NULL;
+			char olddir[PATH_MAX], filename[PATH_MAX],
+			    *dir = NULL;
 			dir = strdup(node->filename);
 			getcwd(olddir, PATH_MAX);
 			dirname(dir);
@@ -407,7 +410,8 @@ static jx_object_t *recurseMerge(jx_object_t * node, jx_object_t * vars)
 				chdir(dir);
 			free(dir);
 
-			if ((tmp = jx_parseFile(next->value)) == NULL) {
+			template(filename, next->value, vars);
+			if ((tmp = jx_parseFile(filename)) == NULL) {
 				jx_free(dest);
 				chdir(olddir);
 				return NULL;
@@ -423,28 +427,24 @@ static jx_object_t *recurseMerge(jx_object_t * node, jx_object_t * vars)
 			chdir(olddir);
 
 			jx_free(tmp);
-			if (dest == NULL)
+			if (!dest) {
 				dest = src;
-			else {
+			} else {
 				merge(dest, src);
 				jx_free(src);
 			}
 
 			next = next->nextSibling;
 		}
+	}
 
-		if (merge(dest, node)) {
-			free(dest);
-			return NULL;
-		}
-	} else {
+	if (!dest)
 		dest = node->type == jx_type_array ? jx_newArray()
 		    : jx_newObject();
 
-		if (merge(dest, node)) {
-			free(dest);
-			return NULL;
-		}
+	if (merge(dest, node)) {
+		free(dest);
+		return NULL;
 	}
 
 	return dest;

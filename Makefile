@@ -9,7 +9,7 @@ CFLAGS	= -O3 -std=c99 -D_POSIX_C_SOURCE=200809L -Wall -Werror -Wextra \
 
 AR	= ar
 
-CDEBUG	= -std=c99 -g -D_POSIX_C_SOURCE=200809L -DJXDEBUG -DJXDEBUGFREE
+CDEBUG	= -std=c99 -g -D_POSIX_C_SOURCE=200809L -DJXDEBUG
 
 CFILES	= json_merger.c jx.c jx_parse.c jx_serialize.c jx_merge.c
 HFILES	= jx.h

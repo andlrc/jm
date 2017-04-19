@@ -1,116 +1,121 @@
-#include "stdio.h"
 #include <string.h>
 #include <stdlib.h>
+#include <getopt.h>
+#include <stdio.h>
 #include "jx.h"
+
+static inline void print_version(void)
+{
+	printf("%s: %s\n", PROGRAM_NAME, PROGRAM_VERSION);
+}
+
+static inline void print_usage(void)
+{
+	fprintf(stderr, "Usage: %s [OPTION] <file>\n", PROGRAM_NAME);
+}
 
 static inline void print_help(void)
 {
-	printf("Usage: json_merger [OPTION] <file>\n\n"
+	printf("Usage: %s [OPTION] <file>\n\n"
 	       "  -o           Output suffix, if left out then stdout is used\n"
 	       "  -p           Prettify the output json\n"
 	       "  -v           Set key=value variable\n"
-	       "  -h           Show this help and exit\n");
+	       "  -h           Show this help and exit\n", PROGRAM_NAME);
 }
+
+static struct option const long_options[] = {
+	{"version", no_argument, NULL, 'V'},
+	{"help", no_argument, NULL, 'h'},
+	{"suffix", required_argument, NULL, 's'},
+	{"pretty", no_argument, NULL, 'p'},
+	{"variable", required_argument, NULL, 'v'},
+	{NULL, 0, NULL, 0}
+};
+
+char short_options[] = "Vhs:pv:";
 
 int main(int argc, char **argv)
 {
-	int pretty = 0;		/* Pretty print */
-	char *outsuffix = NULL;	/* Output suffix */
-	char *arg = NULL, *key = NULL;
 	jx_object_t *vars = NULL;
-	int i = 1;
+	char *suffix = NULL, *tmpbuf, *varkey, *infile;
+	size_t suflen = 0;
+	int ch, argind, pretty = 0;
 
-	if ((vars = jx_newObject()) == NULL) {
-		return 1;
-	}
+	if ((vars = jx_newObject()) == NULL)
+		exit(EXIT_FAILURE);
 
-	for (; i < argc; i++) {
-		arg = argv[i];
-		if (arg[0] == '-') {
-			switch (arg[1]) {
-			case 'h':
-				print_help();
-				return 0;
-			case 'o':
-				if (i + 1 == argc) {
-					fprintf(stderr,
-						"json_merger: missing argument for '-o'");
-					return 1;
-				}
-				outsuffix = argv[++i];
-			case 'p':
-				pretty = 1;
-				break;
-			case 'v':
-				if (i + 1 == argc) {
-					fprintf(stderr,
-						"json_merger: missing argument for '-v'");
-					return 1;
-				}
-
-				arg = argv[++i];
-				key = arg;
-				while (*arg != '\0' && *arg != '=')
-					arg++;
-
-				if (*arg == '=')
-					key[arg++ - key] = '\0';
-
-				jx_moveInto(vars, key, jx_newString(arg));
-				break;
-			default:
-				break;
-			case '-':
-				i++;
-				goto files;
-				break;
-			case '\0':
-				goto files;
-				break;
-			}
-		} else {
-			/* Must be a file then */
+	while ((ch =
+		getopt_long(argc, argv, short_options, long_options,
+			    NULL)) != -1) {
+		switch (ch) {
+		case 'V':
+			print_version();
+			exit(EXIT_SUCCESS);
 			break;
+		case 'h':
+			print_help();
+			exit(EXIT_SUCCESS);
+			break;
+		case 's':
+			suffix = optarg;
+			suflen = strlen(suffix);
+			break;
+		case 'p':
+			pretty = 1;
+			break;
+		case 'v':
+			tmpbuf = strdup(optarg);
+			varkey = tmpbuf;
+			while (*tmpbuf != '\0' && *tmpbuf != '=') {
+				tmpbuf++;
+			}
+			*tmpbuf++ = '\0';
+			jx_moveInto(vars, varkey, jx_newString(tmpbuf));
+			free(varkey);
+			break;
+		default:
+			print_usage();
+			exit(EXIT_FAILURE);
 		}
 	}
-      files:
 
-	for (; i < argc; i++) {
-		char *infile = argv[i];
-		char *outfile = NULL;
+	argind = optind;
+	infile = "-";
+
+	do {
 		jx_object_t *root = NULL, *out = NULL;
+
+		if (argind < argc)
+			infile = argv[argind];
 
 		if ((root = jx_parseFile(infile)) == NULL)
 			continue;
 
+
 		out = jx_merge(root, vars);
 		if (out == NULL) {
 			jx_free(root);
-			return 1;
+			continue;
 		}
 		jx_free(root);
 
-		if (outsuffix != NULL && strcmp(infile, "-") != 0) {
-			outfile = calloc(sizeof(char),
-					 strlen(infile) +
-					 strlen(outsuffix) + 1);
-			if (outfile == NULL) {
-				fprintf(stderr,
-					"json_merger: cannot allocate memory for output file\n");
-				return 1;
-			}
-			strcat(outfile, infile);
-			strcat(outfile, outsuffix);
+		if (strcmp(infile, "-") != 0 && suffix) {
+			char *outfile = NULL;
+			size_t inlen = strlen(infile);
+			if ((outfile = malloc(inlen + suflen + 1)) == NULL)
+				continue;
+			memcpy(outfile, infile, inlen);
+			memcpy(outfile + inlen, suffix, suflen + 1);
+			jx_serialize(outfile, out, pretty ? JX_PRETTY : 0);
+			free(outfile);
 		} else {
-			outfile = strdup("-");
+			jx_serialize("-", out, pretty ? JX_PRETTY : 0);
 		}
 
-		jx_serialize(outfile, out, pretty ? JX_PRETTY : 0);
 		jx_free(out);
-		free(outfile);
-	}
+	} while (++argind < argc);
 
 	jx_free(vars);
 
-	return 0;
+	exit(EXIT_SUCCESS);
 }

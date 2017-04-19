@@ -3,6 +3,9 @@
 #include <stdio.h>
 #define JX_PRETTY 1
 
+#define PROGRAM_NAME "json_merger"
+#define PROGRAM_VERSION "1.0.0"
+
 struct jx_object_s;
 typedef struct jx_object_s jx_object_t;
 
