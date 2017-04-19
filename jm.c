@@ -632,8 +632,9 @@ int jm_arrayInsertAt(jm_object_t * node, int index, jm_object_t * child)
 	} else {
 		jm_object_t *next = NULL, *last = NULL;
 		next = node->firstChild;
+		int i;
 
-		for (int i = 0; i < index; i++) {
+		for (i = 0; i < index; i++) {
 			if (!next) {
 				return 3;
 			}

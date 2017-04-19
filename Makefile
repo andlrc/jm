@@ -4,14 +4,14 @@ PRGNAME	= json_merger
 VERSION	= "r$$(git rev-list --count HEAD).$$(git rev-parse --short HEAD)"
 
 CC	= gcc
-CFLAGS	= -O3 -std=c99 -D_POSIX_C_SOURCE=200809L -Wall -Werror -Wextra \
+CFLAGS	= -O3 -std=c89 -D_POSIX_C_SOURCE=200809L -Wall -Werror -Wextra \
 	  -Wmissing-prototypes -Wold-style-definition \
 	  -Wno-unused-result -Wno-unused-function \
 	  -DPROGRAM_VERSION="\"$(VERSION)\""
 
 AR	= ar
 
-CDEBUG	= -std=c99 -g -D_POSIX_C_SOURCE=200809L -DJMDEBUG
+CDEBUG	= -std=c89 -g -D_POSIX_C_SOURCE=200809L -DJMDEBUG
 CFILES	= json_merger.c jm.c jm_parse.c jm_serialize.c jm_merge.c
 HFILES	= jm.h
 TFILES	= $(CFILES) $(HFILES)

@@ -83,7 +83,7 @@ static enum jm_indicators_e indicator(char *key)
 	}
 }
 
-static inline void white(struct jm_parser *p)
+static void white(struct jm_parser *p)
 {
 	/* Skip whitespaces */
 	while (*p->ch != '\0' && *p->ch <= ' ') {

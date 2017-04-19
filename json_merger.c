@@ -4,17 +4,17 @@
 #include <stdio.h>
 #include "jm.h"
 
-static inline void print_version(void)
+static void print_version(void)
 {
 	printf("%s: %s\n", PROGRAM_NAME, PROGRAM_VERSION);
 }
 
-static inline void print_usage(void)
+static void print_usage(void)
 {
 	fprintf(stderr, "Usage: %s [OPTION] <file>\n", PROGRAM_NAME);
 }
 
-static inline void print_help(void)
+static void print_help(void)
 {
 	printf("Usage: %s [OPTION] <file>\n"
 	       "  -s, --suffix       Output suffix, if left out then stdout is used\n"
