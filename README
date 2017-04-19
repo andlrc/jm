@@ -13,14 +13,21 @@ DESCRIPTION
        @extends, @match, @override and @delete.
 
 
-       -o  Output suffix. Suffix added to  input  files  to  construct  output
+       -s, --suffix
+           Output suffix. Suffix added to  input  files  to  construct  output
            files.  If left blank then stdout is used.
 
-       -p  Prettify, indent the output JSON in a human way.
+       -p, --pretty
+           Prettify, indent the output JSON in a human way.
 
-       -v  Set key=value variables. See PATH TEMPLATING.
+       -v, --variable
+           Set key=value variables. See PATH TEMPLATING.
 
-       -h  Show help and exit.
+       -V, --version
+           Print version information.
+
+       -h, --help
+           Show help and exit.
 
 INDICATORS
        @extends
