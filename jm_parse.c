@@ -3,26 +3,37 @@
 #include <stdio.h>
 #include "jm.h"
 
-static char *text;		/* Used for error messages, contains original source to parse */
-static char *ch;		/* The current character */
-static size_t lineno;		/* Contains numbers of lines */
-static size_t llineno;		/* Contains offset for where last lineno is */
+struct jm_parser {
+	char *source;		/* Used for error messages, contains original source to parse */
+	char *ch;		/* The current character */
+	size_t lineno;		/* Contains numbers of lines */
+	size_t llineno;		/* Contains offset for where last lineno is */
+};
 
-static void white(void);
-static jm_object_t *object(void);
-static jm_object_t *array(void);
-static char *string(void);
-static char *number(void);
-static char *literal(void);
-static jm_object_t *value(void);
+static void white(struct jm_parser *p);
+static jm_object_t *object(struct jm_parser *p);
+static jm_object_t *array(struct jm_parser *p);
+static char *string(struct jm_parser *p);
+static char *number(struct jm_parser *p);
+static char *literal(struct jm_parser *p);
+static jm_object_t *value(struct jm_parser *p);
 
-static void err(char expected)
+static void err(struct jm_parser *p, char expected)
 {
 	fprintf(stderr,
 		"%s: Expected '%c' instead of '%c' at %zu:%zu\n",
-		PROGRAM_NAME, expected, *ch, (size_t) lineno,
-		(ch - text - llineno));
+		PROGRAM_NAME, expected, *p->ch, p->lineno,
+		(p->ch - p->source - p->llineno));
 	exit(1);
+}
+
+static int maybe(char *ch, char *seek)
+{
+	while (*seek != '\0')
+		if (*ch++ != *seek++)
+			return 1;
+
+	return 0;
 }
 
 static enum jm_indicators_e indicator(char *key)
@@ -72,47 +83,47 @@ static enum jm_indicators_e indicator(char *key)
 	}
 }
 
-static inline void white(void)
+static inline void white(struct jm_parser *p)
 {
 	/* Skip whitespaces */
-	while (*ch != '\0' && *ch <= ' ') {
-		if (*ch == '\n') {
-			lineno++;
-			llineno = (ch - text);
+	while (*p->ch != '\0' && *p->ch <= ' ') {
+		if (*p->ch == '\n') {
+			p->lineno++;
+			p->llineno = (p->ch - p->source);
 		}
-		ch++;
+		p->ch++;
 	}
 }
 
-static jm_object_t *object(void)
+static jm_object_t *object(struct jm_parser *p)
 {
-	if (*ch != '{') {
-		err('{');
+	if (*p->ch != '{') {
+		err(p, '{');
 		return NULL;
 	}
-	ch++;
+	p->ch++;
 	jm_object_t *object = jm_newObject();
-	white();
+	white(p);
 
 	/* Empty object */
-	if (*ch == '}') {
-		ch++;
+	if (*p->ch == '}') {
+		p->ch++;
 		return object;
 	}
 
-	while (*ch != '\0') {
+	while (*p->ch != '\0') {
 
-		char *key = string();
+		char *key = string(p);
 
-		white();
-		if (*ch != ':') {
+		white(p);
+		if (*p->ch != ':') {
 			jm_free(object);
 			free(key);
-			err(':');
+			err(p, ':');
 			return NULL;
 		}
-		ch++;
-		jm_object_t *val = value();
+		p->ch++;
+		jm_object_t *val = value(p);
 
 		switch (indicator(key)) {
 		case jm_indicator_extends:
@@ -155,21 +166,21 @@ static jm_object_t *object(void)
 		}
 
 		free(key);
-		white();
+		white(p);
 
-		if (*ch == '}') {
-			ch++;
+		if (*p->ch == '}') {
+			p->ch++;
 			return object;
 		}
 
-		if (*ch != ',') {
+		if (*p->ch != ',') {
 			jm_free(object);
-			err(',');
+			err(p, ',');
 			return NULL;
 		}
-		ch++;
+		p->ch++;
 
-		white();
+		white(p);
 	}
 
 	/* Error here */
@@ -177,37 +188,37 @@ static jm_object_t *object(void)
 	return NULL;
 }
 
-static jm_object_t *array(void)
+static jm_object_t *array(struct jm_parser *p)
 {
-	if (*ch != '[') {
-		err('[');
+	if (*p->ch != '[') {
+		err(p, '[');
 		return NULL;
 	}
-	ch++;
+	p->ch++;
 	jm_object_t *array = jm_newArray();
-	white();
+	white(p);
 
 	/* Empty array */
-	if (*ch == ']') {
-		ch++;
+	if (*p->ch == ']') {
+		p->ch++;
 		return array;
 	}
 
-	while (ch != '\0') {
-		jm_arrayPush(array, value());
-		white();
-		if (*ch == ']') {
-			ch++;
+	while (p->ch != '\0') {
+		jm_arrayPush(array, value(p));
+		white(p);
+		if (*p->ch == ']') {
+			p->ch++;
 			return array;
 		}
 
-		if (*ch != ',') {
+		if (*p->ch != ',') {
 			jm_free(array);
-			err(',');
+			err(p, ',');
 			return NULL;
 		}
-		ch++;
-		white();
+		p->ch++;
+		white(p);
 	}
 
 	/* Error here */
@@ -215,13 +226,13 @@ static jm_object_t *array(void)
 	return NULL;
 }
 
-static char *string(void)
+static char *string(struct jm_parser *p)
 {
-	if (*ch != '"') {
-		err('"');
+	if (*p->ch != '"') {
+		err(p, '"');
 		return NULL;
 	}
-	ch++;
+	p->ch++;
 
 	size_t buff_size = 256;
 	char *buff = NULL, *retbuff = NULL;
@@ -230,22 +241,20 @@ static char *string(void)
 		return NULL;
 	retbuff = buff;
 
-	while (*ch != '\0') {
-		switch (*ch) {
+	while (*p->ch != '\0') {
+		switch (*p->ch) {
 		case '"':
-			ch++;
+			p->ch++;
 			*buff = '\0';
-			if (strcmp(retbuff, "Publiceret") == 0)
-				return retbuff;
 			return retbuff;
 			break;
 		case '\\':
-			*buff++ = *ch++;
+			*buff++ = *p->ch++;
 			/* Fallthough */
 		default:
-			*buff++ = *ch;
+			*buff++ = *p->ch;
 		}
-		ch++;
+		p->ch++;
 
 		/* At most two bytes is added */
 		if (buff_size - 1 <= (size_t) (buff - retbuff)) {
@@ -263,7 +272,7 @@ static char *string(void)
 	return NULL;
 }
 
-static char *number(void)
+static char *number(struct jm_parser *p)
 {
 	char *buff = NULL, *retbuff = NULL;
 
@@ -271,27 +280,27 @@ static char *number(void)
 		return 0;
 	retbuff = buff;
 
-	if (*ch == '-')
-		*buff++ = *ch++;
+	if (*p->ch == '-')
+		*buff++ = *p->ch++;
 
-	while (*ch >= '0' && *ch <= '9') {
-		*buff++ = *ch++;
+	while (*p->ch >= '0' && *p->ch <= '9') {
+		*buff++ = *p->ch++;
 	}
 
-	if (*ch == '.') {
-		*buff++ = *ch++;
-		while (*ch != '\0' && *ch >= '0' && *ch <= '9') {
-			*buff++ = *ch++;
+	if (*p->ch == '.') {
+		*buff++ = *p->ch++;
+		while (*p->ch != '\0' && *p->ch >= '0' && *p->ch <= '9') {
+			*buff++ = *p->ch++;
 		}
 	}
 
-	if (*ch == 'e' || *ch == 'E') {
-		*buff++ = *ch++;
-		if (*ch == '-' || *ch == '+')
-			*buff++ = *ch;
+	if (*p->ch == 'e' || *p->ch == 'E') {
+		*buff++ = *p->ch++;
+		if (*p->ch == '-' || *p->ch == '+')
+			*buff++ = *p->ch;
 
-		while (*ch >= '0' && *ch <= '9') {
-			*buff++ = *ch++;
+		while (*p->ch >= '0' && *p->ch <= '9') {
+			*buff++ = *p->ch++;
 		}
 	}
 
@@ -299,17 +308,7 @@ static char *number(void)
 	return retbuff;
 }
 
-static int maybe(char *seek)
-{
-	char *cc = ch;
-	while (*seek != '\0')
-		if (*cc++ != *seek++)
-			return 1;
-
-	return 0;
-}
-
-static char *literal(void)
+static char *literal(struct jm_parser *p)
 {
 	/* Code buffer */
 	char *buff = NULL, *retbuff = NULL;
@@ -321,20 +320,20 @@ static char *literal(void)
 	} brackets = {
 	0};
 
-	white();
+	white(p);
 
-	if (maybe("true") == 0) {
-		ch += 4;
+	if (maybe(p->ch, "true") == 0) {
+		p->ch += 4;
 		return strdup("true");
 	}
 
-	if (maybe("false") == 0) {
-		ch += 5;
+	if (maybe(p->ch, "false") == 0) {
+		p->ch += 5;
 		return strdup("false");
 	}
 
-	if (maybe("null") == 0) {
-		ch += 4;
+	if (maybe(p->ch, "null") == 0) {
+		p->ch += 4;
 		return strdup("null");
 	}
 
@@ -342,20 +341,21 @@ static char *literal(void)
 		return NULL;
 	retbuff = buff;
 
-	while (*ch != '\0') {
+	while (*p->ch != '\0') {
 		/* Slurp everything until a closing {curly, square} bracket
 		 * or comma. Also count pairs of opening and closing brackets */
 		if (!brackets.cur && !brackets.sqr && !brackets.par) {
-			if (*ch == '}' || *ch == ']' || *ch == ',') {
+			if (*p->ch == '}' || *p->ch == ']'
+			    || *p->ch == ',') {
 				*buff = '\0';
 				return retbuff;
 			}
 		}
 
-		switch (*ch) {
+		switch (*p->ch) {
 		case '\n':
-			lineno++;
-			llineno = (ch - text);
+			p->lineno++;
+			p->llineno = p->ch - p->source;
 			break;
 		case '{':
 			brackets.cur++;
@@ -377,7 +377,7 @@ static char *literal(void)
 			break;
 		}
 
-		*buff++ = *ch++;
+		*buff++ = *p->ch++;
 
 		if (buff_size <= (size_t) (buff - retbuff)) {
 			char *temp;
@@ -391,35 +391,36 @@ static char *literal(void)
 
       err:
 	free(retbuff);
-	err(brackets.cur ? '}' : brackets.sqr ? ']' : ')');
+	err(p, brackets.cur ? '}' : brackets.sqr ? ']' : ')');
 	return NULL;
 }
 
-static jm_object_t *value(void)
+static jm_object_t *value(struct jm_parser *p)
 {
 	jm_object_t *node;
 	char *str;
-	white();
+	white(p);
 
-	switch (*ch) {
+	switch (*p->ch) {
 	case '{':
-		node = object();
+		node = object(p);
 		break;
 	case '[':
-		node = array();
+		node = array(p);
 		break;
 	case '"':
-		str = string();
+		str = string(p);
 		node = jm_newString(str);
 		free(str);
 		break;
 	case '-':
-		str = number();
+		str = number(p);
 		node = jm_newLiteral(str);
 		free(str);
 		break;
 	default:
-		str = *ch >= '0' && *ch <= '9' ? number() : literal();
+		str = *p->ch >= '0'
+		    && *p->ch <= '9' ? number(p) : literal(p);
 		node = jm_newLiteral(str);
 		free(str);
 		break;
@@ -431,14 +432,21 @@ jm_object_t *jm_parse(char *source)
 {
 	jm_object_t *result;
 
-	lineno = 1;
-	llineno = 0;
-	ch = source;
-	text = source;
-	result = value();
-	white();
-	if (*ch != '\0') {
+	struct jm_parser *p = NULL;
+
+	if ((p = malloc(sizeof(struct jm_parser))) == NULL)
+		return NULL;
+
+	p->lineno = 1;
+	p->llineno = 0;
+	p->ch = source;
+	p->source = source;
+
+	result = value(p);
+	white(p);
+	if (*p->ch != '\0') {
 		fprintf(stderr, "%s: syntax errror\n", PROGRAM_NAME);
+		free(p);
 		jm_free(result);
 		return NULL;
 	}
