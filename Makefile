@@ -6,7 +6,7 @@ VERSION	= "r$$(git rev-list --count HEAD).$$(git rev-parse --short HEAD)"
 CC	= gcc
 CFLAGS	= -O3 -std=c89 -D_POSIX_C_SOURCE=200809L -Wall -Werror -Wextra \
 	  -Wmissing-prototypes -Wold-style-definition \
-	  -Wno-unused-result -Wno-unused-function \
+	  -Wno-unused-function \
 	  -DPROGRAM_VERSION="\"$(VERSION)\""
 
 AR	= ar

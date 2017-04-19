@@ -404,27 +404,34 @@ static jm_object_t *recurseMerge(jm_object_t * node, jm_object_t * vars)
 			char olddir[PATH_MAX], filename[PATH_MAX],
 			    *dir = NULL;
 			dir = strdup(node->filename);
-			getcwd(olddir, PATH_MAX);
+			if (!getcwd(olddir, PATH_MAX)) {
+				free(dir);
+				return NULL;
+			}
 			dirname(dir);
-			if (strcmp(dir, node->filename) != 0)
-				chdir(dir);
+			if (strcmp(dir, node->filename) != 0 && chdir(dir)) {
+				free(dir);
+				return NULL;
+			}
 			free(dir);
 
 			template(filename, next->value, vars);
 			if ((tmp = jm_parseFile(filename)) == NULL) {
 				jm_free(dest);
-				chdir(olddir);
 				return NULL;
 			}
 
 			if ((src = recurseMerge(tmp, vars)) == NULL) {
 				jm_free(tmp);
 				jm_free(dest);
-				chdir(olddir);
 				return NULL;
 			}
 
-			chdir(olddir);
+			if (chdir(olddir)) {
+				jm_free(tmp);
+				jm_free(dest);
+				return NULL;
+			}
 
 			jm_free(tmp);
 			if (!dest) {
