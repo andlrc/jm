@@ -196,6 +196,9 @@ static jm_object_t *query(jm_object_t * node, struct jm_queryRule_s *rule)
 			/* Everything done above */
 			break;
 		case rule_type_equal:
+			if (rule->isString
+			    && childNode->type != jm_type_string)
+				return NULL;
 			if (childNode->type != jm_type_string
 			    && childNode->type != jm_type_literal)
 				return NULL;
@@ -305,7 +308,7 @@ jm_object_t *jm_query(jm_object_t * node, char *selector)
 				selector += 4;
 				goto attrval;
 			}
-			if (*selector == '"') {
+			if (*selector == '\'') {
 				selector++;
 				rule->isString = 1;
 			}
@@ -316,7 +319,7 @@ jm_object_t *jm_query(jm_object_t * node, char *selector)
 
 			while (*selector != '\0'
 			       && (rule->isString ? *selector !=
-				   '"' : *selector != '='
+				   '\'' : *selector != '='
 				   && *selector != ']')) {
 				/* Character is escaped */
 				if (*selector == '\\')
@@ -327,7 +330,7 @@ jm_object_t *jm_query(jm_object_t * node, char *selector)
 
 			*buff = '\0';
 
-			if (rule->isString && *selector != '"')
+			if (rule->isString && *selector++ != '\'')
 				goto err;
 
 			/* isString was set before for parsing the key, but it
@@ -365,7 +368,7 @@ jm_object_t *jm_query(jm_object_t * node, char *selector)
 		      attrval:
 
 			/* Find value */
-			if (*selector == '"') {
+			if (*selector == '\'') {
 				selector++;
 				rule->isString = 1;
 			}
@@ -376,8 +379,7 @@ jm_object_t *jm_query(jm_object_t * node, char *selector)
 
 			while (*selector != '\0'
 			       && (rule->isString ? *selector !=
-				   '"' : *selector != '='
-				   && *selector != ']')) {
+				   '\'' : *selector != ']')) {
 				/* Character is escaped */
 				if (*selector == '\\')
 					selector++;
@@ -387,7 +389,7 @@ jm_object_t *jm_query(jm_object_t * node, char *selector)
 
 			*buff = '\0';
 
-			if (rule->isString && *selector != '"')
+			if (rule->isString && *selector++ != '\'')
 				goto err;
 
 			if (*selector++ != ']')
