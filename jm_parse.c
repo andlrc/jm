@@ -10,6 +10,21 @@ struct jm_parser {
 	size_t llineno;		/* Contains offset for where last lineno is */
 };
 
+enum jm_indicators_e {
+	jm_indicator_unknown,
+	jm_indicator_extends,
+	jm_indicator_append,
+	jm_indicator_prepend,
+	jm_indicator_insert,
+	jm_indicator_move,
+	jm_indicator_value,
+	jm_indicator_override,
+	jm_indicator_delete,
+	jm_indicator_match,
+	jm_indicators_id,
+	jm_indicators_comment
+};
+
 static void white(struct jm_parser *p);
 static jm_object_t *object(struct jm_parser *p);
 static jm_object_t *array(struct jm_parser *p);
@@ -29,7 +44,6 @@ static void err(struct jm_parser *p, char expected)
 		fprintf(stderr,
 			"%s: expected '%c' instead of '%c' at %zu:%zu\n",
 			PROGRAM_NAME, expected, *p->ch, row, col);
-	exit(1);
 }
 
 static int maybe(char *ch, char *seek)
@@ -37,7 +51,6 @@ static int maybe(char *ch, char *seek)
 	while (*seek != '\0')
 		if (*ch++ != *seek++)
 			return 1;
-
 	return 0;
 }
 
@@ -46,41 +59,42 @@ static enum jm_indicators_e indicator(char *key)
 	if (*key++ != '@')
 		return jm_indicator_unknown;
 
-	switch (*key++) {
+	switch (*key) {
 	case 'a':
-		return strcmp(key, "ppend") == 0
+		return strcmp(key, "append") == 0
 		    ? jm_indicator_append : jm_indicator_unknown;
 		break;
 	case 'c':
-		return strcmp(key, "omment") == 0
+		return strcmp(key, "comment") == 0
 		    ? jm_indicators_comment : jm_indicator_unknown;
 	case 'd':
-		return strcmp(key, "elete") == 0
+		return strcmp(key, "delete") == 0
 		    ? jm_indicator_delete : jm_indicator_unknown;
 		break;
 	case 'e':
-		return strcmp(key, "xtends") == 0
+		return strcmp(key, "extends") == 0
 		    ? jm_indicator_extends : jm_indicator_unknown;
 		break;
 	case 'i':
-		return strcmp(key, "nsert") == 0
-		    ? jm_indicator_insert : jm_indicator_unknown;
+		return strcmp(key, "insert") == 0
+		    ? jm_indicator_insert : strcmp(key, "id") == 0
+		    ? jm_indicators_id : jm_indicator_unknown;;
 		break;
 	case 'm':
-		return strcmp(key, "ove") == 0
-		    ? jm_indicator_move : strcmp(key, "atch") == 0
+		return strcmp(key, "move") == 0
+		    ? jm_indicator_move : strcmp(key, "match") == 0
 		    ? jm_indicator_match : jm_indicator_unknown;
 	case 'o':
-		return strcmp(key, "verride") == 0
+		return strcmp(key, "override") == 0
 		    ? jm_indicator_override : jm_indicator_unknown;
 		break;
 	case 'p':
-		return strcmp(key, "repend") == 0
+		return strcmp(key, "prepend") == 0
 		    ? jm_indicator_prepend : jm_indicator_unknown;
 		break;
 		break;
 	case 'v':
-		return strcmp(key, "alue") == 0
+		return strcmp(key, "value") == 0
 		    ? jm_indicator_value : jm_indicator_unknown;
 		break;
 	default:
@@ -117,18 +131,27 @@ static jm_object_t *object(struct jm_parser *p)
 	}
 
 	while (*p->ch != '\0') {
+		jm_object_t *val = NULL;
+		char *key = NULL;
 
-		char *key = string(p);
+		if ((key = string(p)) == NULL) {
+			jm_free(object);
+			return NULL;
+		}
 
 		white(p);
 		if (*p->ch != ':') {
-			jm_free(object);
 			free(key);
+			jm_free(object);
 			err(p, ':');
 			return NULL;
 		}
 		p->ch++;
-		jm_object_t *val = value(p);
+		if ((val = value(p)) == NULL) {
+			free(key);
+			jm_free(object);
+			return NULL;
+		}
 
 		switch (indicator(key)) {
 		case jm_indicator_extends:
@@ -162,6 +185,10 @@ static jm_object_t *object(struct jm_parser *p)
 			/* TODO: Register node under the ID in `val->value' */
 			fprintf(stderr,
 				"%s: @ID isn't supported\n", PROGRAM_NAME);
+			jm_free(object);
+			jm_free(val);
+			free(key);
+			return NULL;
 			break;
 		case jm_indicators_comment:
 			jm_free(val);
@@ -210,7 +237,12 @@ static jm_object_t *array(struct jm_parser *p)
 	}
 
 	while (p->ch != '\0') {
-		jm_arrayPush(array, value(p));
+		jm_object_t *val = NULL;
+		if ((val = value(p)) == NULL) {
+			free(array);
+			return NULL;
+		}
+		jm_arrayPush(array, val);
 		white(p);
 		if (*p->ch == ']') {
 			p->ch++;
@@ -402,7 +434,7 @@ static char *literal(struct jm_parser *p)
 
 static jm_object_t *value(struct jm_parser *p)
 {
-	jm_object_t *node;
+	jm_object_t *node = NULL;
 	char *str;
 	white(p);
 
@@ -455,6 +487,8 @@ jm_object_t *jm_parse(char *source)
 		jm_free(result);
 		return NULL;
 	}
+
+	free(p);
 
 	return result;
 }

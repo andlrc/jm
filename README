@@ -1,7 +1,5 @@
 json_merger(1)              General Commands Manual             json_merger(1)
 
-
-
 NAME
        json_merger - Merge JSON files based on indicators
 
@@ -11,7 +9,6 @@ SYNOPSIS
 DESCRIPTION
        json_merger  is  a  way to merge JSON files based on indicators such as
        @extends, @match, @override and @delete.
-
 
        -s, --suffix
            Output suffix. Suffix added to  input  files  to  construct  output
@@ -31,28 +28,28 @@ DESCRIPTION
 
 INDICATORS
        @extends
-           An array of path names to files which should be extended, i.e:
+           An array of path names to files which should be extended.
 
        @override
-           An  array  or true indicating that the given property will be over-
-           ridden.  When used with true the whole property will be overridden.
-           When used with an array only the listed properties will be overrid-
+           An  array  or true indicating that the given property will be over‐
+           ridden.  When used with true the whole  node  will  be  overridden.
+           When used with an array only the listed properties will be overrid‐
            den.
 
        @append, @prepend, @insert
            When working with arrays the default behaviour will be to merge  on
            indexes, i.e.  first item in the arrays will be merged together.
 
-           Using @append one can force the object to be appended at the end of
+           Using  @append  one can force the node to be appended at the end of
            the destination array.
 
-           Using @prepend one can force the object  to  be  prepended  at  the
-           beginning of the destination array.  Note that @prepend will insert
-           at index 0, 1,  2  accordantly  to  make  the  JSON  represent  the
-           sequence of which the nodes are inserted.
+           Using @prepend one can force the node to be prepended at the begin‐
+           ning  of  the destination array.  Note that @prepend will insert at
+           index 0, 1, 2 accordantly to make the JSON represent  the  sequence
+           of which the nodes are inserted.
 
-           Using  @insert one can specify the index at which the object should
-           be inserted.
+           Using @insert one can specify the index at which the node should be
+           inserted.
 
        @match
            Match can be used to match a given item in an  array.   See  "MATCH
@@ -64,7 +61,7 @@ INDICATORS
 
        @value
            Used together with the @insert family of indicators,  to  insert  a
-           primitive  value at a specific location.  See EXAMPLES for an exam-
+           primitive  value at a specific location.  See EXAMPLES for an exam‐
            ple.
 
        @comment
@@ -74,89 +71,176 @@ INDICATORS
        @id Global ID's that can be matched with @match.
 
 PATH TEMPLATING
-       Paths  specified  in @extends can be templated using the following syn-
+       Paths  specified  in @extends can be templated using the following syn‐
        tax: $variable and ${variable}.
 
        See the following example:
 
-       $ cat a.json
-       { "@extends": ["${my_var}.json"], "a": 1 }
-       $ cat b.json
-       { "b": 1 }
-       $ json_merger -v my_var=b a.json
-       { "b": 1, "a": 1 }
+           $ cat a.json
+           { "@extends": ["${my_var}.json"], "a": 1 }
+           $ cat b.json
+           { "b": 1 }
+           $ json_merger -v my_var=b a.json
+           { "b": 1, "a": 1 }
 
 MATCH SYNTAX
-       WIP
+       Property
+           Match a property with a primitive value, the syntax is:
+
+               [property]
+               [property=value]
+               [property='value']
+               ['property'='value']
+               [@SPECIAL=value]
+
+           If single quotes is used a string will be  matches.   Note  that  a
+           string will still be checked even when they are omitted.
+
+           The list of @SPECIAL are:
+
+           @value use to match primitives in arrays.
+           @id use to match specified ID's.  See INDICATORS.
+
+       ID  Match an ID specified with @id.  The syntax is:
+
+               #id
+
+           See INDICATORS.
+
+       Directory
+           Match a property name and ascend into that matches node, the syntax
+           is:
+
+               name/
 
 EXAMPLES
        @extends
            To extend the files c.json and then b.json one could write:
 
-           {
-             "@extends": ["b.json", "c.json"]
-           }
+               {
+                 "@extends": ["b.json", "c.json"]
+               }
 
-       This will take c.json as the base file.  Then apply b.json on top.  And
-       finally apply the initial file on top of that output.
+           This will take b.json as the base file.  Then apply c.json on  top.
+           And finally apply the initial file on top of that output.
+
+           If  b.json  or  c.json  contains  @extends indicators these will be
+           resolved beforehand.
 
        @override
            Having b.json as:
 
-           {
-             "prop1": { "b": 1 }
-           }
+               {
+                 "prop1": { "b": 1 }
+               }
 
-       One can override prop1 with:
+           One can override prop1 with:
 
-           {
-             "@extends": ["b.json"],
-             "prop1": { "@override": true, "a": 1 }
-           }
+               {
+                 "@extends": ["b.json"],
+                 "prop1": { "@override": true, "a": 1 }
+               }
 
-       The same can be archived using:
+           The same can be archived using:
 
-           {
-             "@extends": ["b.json"],
-             "@override": ["prop1"],
-             "prop1": { "a": 1 }
-           }
+               {
+                 "@extends": ["b.json"],
+                 "@override": ["prop1"],
+                 "prop1": { "a": 1 }
+               }
 
        @insert
            Having b.json as:
 
-           {
-             "arr": ["A", "B", "C"]
-           }
+               {
+                 "arr": ["A", "B", "C"]
+               }
 
-       One can insert an object between A and B with:
+           One can insert an object between A and B with:
 
-           {
-             "@extends": ["b.json"],
-             "arr": [ { "@insert": 1, "a": 1 } ]
-           }
+               {
+                 "@extends": ["b.json"],
+                 "arr": [ { "@insert": 1, "a": 1 } ]
+               }
 
-       The above will output:
+           The same applies for @append and @prepend.
 
-           {
-             "arr": ["A", { "a": 1 }, "B", "C"]
-           }
+           If one wants to insert a primitive value, or an array, one can  use
+           @value.  Taking the example from above:
 
-       The same applies for @append and @prepend.
+               {
+                 "@extends": ["b.json"],
+                 "arr": [ { "@insert": 1, "@value": "A2" }
+               }
 
-       If  one  wants  to  insert  a primitive value, or an array, one can use
-       @value to specify the inserted value.  Taking the example from above if
-       the following was used:
+       Match Property
+           Having b.json as:
 
-           {
-             "@extends": ["b.json"],
-             "arr": [ { "@insert": 1, "@value": "A2" }
-           }
+               {
+                 "arr": [
+                   { "a": 1 },
+                   { "a": 2 },
+                   { "a": 3 }
+               }
 
-       The output would be:
+           One can match the second element { "a": 2 } with:
 
-           {
-             "arr": ["A", "A2", "B", "C"]
-           }
+               {
+                 "@extends": ["b.json"],
+                 "arr": [ { "@match": "[a=2]" } ]
+               }
+
+       Match Directory
+           Having b.json as:
+
+               {
+                 "a": {
+                   "b": {
+                     "c": 1
+                   }
+                 }
+               }
+
+           One can match the the path object containing c = 1 with:
+
+               {
+                 "@extends": ["b.json"],
+                 "@match": "a/b/[c=1]"
+               }
+
+       Match @value
+           Having b.json as:
+
+               {
+                 "arr": [ "A", "B", "C" ]
+               }
+
+           One can match and delete the B with:
+
+               {
+                 "@extends": ["b.json"],
+                 "arr": [ { "@delete": true, "@match": "[@value=B]" } ]
+               }
+
+       Match @id
+           Having b.json as:     {
+                 "a": { "@id": "a" },
+                 "b": { "@id": "b" }
+               }
+
+           One can match and delete the a with:
+
+               {
+                 "@extends": ["b.json"],
+                 "@match": "#a",
+                 "@delete": true
+               }
+
+EXIT STATUS
+       The following exit values shall be returned:
+
+       0   Successful completion.
+
+       >0  An error occurred.
 
                                                                 json_merger(1)

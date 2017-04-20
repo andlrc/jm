@@ -52,10 +52,12 @@ int main(int argc, char **argv)
 		switch (ch) {
 		case 'V':
 			print_version();
+			jm_free(vars);
 			exit(EXIT_SUCCESS);
 			break;
 		case 'h':
 			print_help();
+			jm_free(vars);
 			exit(EXIT_SUCCESS);
 			break;
 		case 's':
@@ -76,6 +78,7 @@ int main(int argc, char **argv)
 			free(varkey);
 			break;
 		default:
+			jm_free(vars);
 			print_usage();
 			exit(EXIT_FAILURE);
 		}
@@ -91,11 +94,12 @@ int main(int argc, char **argv)
 			infile = argv[argind];
 
 		if ((root = jm_parseFile(infile)) == NULL)
-			continue;
+			exit(EXIT_FAILURE);
 
 
 		if (!(out = jm_merge(root, vars))) {
 			jm_free(root);
+			jm_free(vars);
 			exit(EXIT_FAILURE);
 		}
 		jm_free(root);
@@ -117,6 +121,5 @@ int main(int argc, char **argv)
 	} while (++argind < argc);
 
 	jm_free(vars);
-
 	exit(EXIT_SUCCESS);
 }

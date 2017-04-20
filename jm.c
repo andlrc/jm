@@ -365,11 +365,12 @@ jm_object_t *jm_query(jm_object_t * node, char *selector)
 				goto err;
 			rule->value = buff;
 
-			while ((*selector >= 'a' && *selector <= 'z')
+			while (*selector != '\0' &&
+			       ((*selector >= 'a' && *selector <= 'z')
 			       || (*selector >= 'A' && *selector <= 'Z')
 			       || (*selector >= '0' && *selector <= '9')
-			       || *selector == '_')
-				*buff++ = *selector;
+			       || *selector == '_'))
+				*buff++ = *selector++;
 			*buff = '\0';
 			rule->type = rule_type_id;
 			break;
@@ -685,6 +686,7 @@ jm_object_t *jm_parseFile(char *file)
 	char *buff = NULL, *source = NULL;
 	size_t buff_size = 256;
 	int ch;
+	jm_object_t *node = NULL;
 
 	if (!fh) {
 		fprintf(stderr, "%s: cannot access '%s'\n", PROGRAM_NAME,
@@ -709,7 +711,9 @@ jm_object_t *jm_parseFile(char *file)
 
 	*buff = '\0';
 
-	jm_object_t *node = jm_parse(source);
+	if ((node = jm_parse(source)) == NULL)
+		goto err;
+
 	free(source);
 	if (fh != stdin)
 		fclose(fh);

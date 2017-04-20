@@ -19,21 +19,6 @@ enum jm_type_e {
 	jm_type_literal		/* null, numbers, booleans and JavaScript */
 };
 
-enum jm_indicators_e {
-	jm_indicator_unknown,
-	jm_indicator_extends,
-	jm_indicator_append,
-	jm_indicator_prepend,
-	jm_indicator_insert,
-	jm_indicator_move,
-	jm_indicator_value,
-	jm_indicator_override,
-	jm_indicator_delete,
-	jm_indicator_match,
-	jm_indicators_id,
-	jm_indicators_comment
-};
-
 /* Indicators set on objects */
 struct jm_indicators_s {
 	jm_object_t *extends;	/* Array */

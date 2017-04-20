@@ -9,8 +9,6 @@ CFLAGS	= -O3 -std=c89 -D_POSIX_C_SOURCE=200809L -Wall -Werror -Wextra \
 	  -Wno-unused-function \
 	  -DPROGRAM_VERSION="\"$(VERSION)\""
 
-AR	= ar
-
 CDEBUG	= -std=c89 -g -D_POSIX_C_SOURCE=200809L -DJMDEBUG
 CFILES	= json_merger.c jm.c jm_parse.c jm_serialize.c jm_merge.c
 HFILES	= jm.h
@@ -43,7 +41,7 @@ README:	man.1
 
 # Install
 
-install:	$(PRGNAME) README man.1
+install:	$(PRGNAME) man.1
 	cp $(PRGNAME) $(PRGDIR)/$(PRGNAME)
 	cp man.1 $(MANDIR)/$(PRGNAME).1
 
@@ -54,7 +52,7 @@ uninstall:
 
 clean:
 # Output files
-	-rm $(PRGNAME) $(OFILES) 
+	-rm $(PRGNAME) $(OFILES)
 # Indent backup files
 	-rm $(CFILES:=~) $(HFILES:=~)
 
