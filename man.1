@@ -27,12 +27,17 @@ Print version information.
 
 .SH "INDICATORS"
 .IP "\fB@extends\fR" 4
-An array of path names to files which should be extended.
+An array or string of path names to files which should be extended.
+
+.IP "\fB@delete\fR" 4
+An array, string or \fBtrue\FR indicating that the given property will be
+deleted.  \fBMATCH SYNTAX\fR is supported. See \fB@override\fR.
 
 .IP "\fB@override\fR" 4
-An array or \fBtrue\fR indicating that the given property will be overridden.
-When used with \fBtrue\fR the whole node will be overridden. When used with
-an array only the listed properties will be overridden.
+An array, string or \fBtrue\fR indicating that the given property will be
+overridden.  When used with \fBtrue\fR the whole node will be overridden. When
+used with an array only the listed properties will be overridden.  \fB MATCH
+SYNTAX\fR is supported.
 
 .IP "\fB@append\fR, \fB@prepend\fR, \fB@insert\fR" 4
 When working with arrays the default behaviour will be to merge on indexes, i.e.

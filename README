@@ -28,50 +28,54 @@ DESCRIPTION
 
 INDICATORS
        @extends
-           An array of path names to files which should be extended.
+           An array or string of path names to files which should be extended.
+
+       @delete
+           An array, string or true indicating that the given property will be
+           deleted.  MATCH SYNTAX is supported. See @override.
 
        @override
-           An  array  or true indicating that the given property will be over‐
-           ridden.  When used with true the whole  node  will  be  overridden.
-           When used with an array only the listed properties will be overrid‐
-           den.
+           An array, string or true indicating that the given property will be
+           overridden.  When used with true the whole node will be overridden.
+           When used with an array only the listed properties will be overrid-
+           den.   MATCH SYNTAX is supported.
 
        @append, @prepend, @insert
-           When working with arrays the default behaviour will be to merge  on
+           When  working with arrays the default behaviour will be to merge on
            indexes, i.e.  first item in the arrays will be merged together.
 
-           Using  @append  one can force the node to be appended at the end of
+           Using @append one can force the node to be appended at the  end  of
            the destination array.
 
-           Using @prepend one can force the node to be prepended at the begin‐
-           ning  of  the destination array.  Note that @prepend will insert at
-           index 0, 1, 2 accordantly to make the JSON represent  the  sequence
+           Using @prepend one can force the node to be prepended at the begin-
+           ning of the destination array.  Note that @prepend will  insert  at
+           index  0,  1, 2 accordantly to make the JSON represent the sequence
            of which the nodes are inserted.
 
            Using @insert one can specify the index at which the node should be
            inserted.
 
        @match
-           Match can be used to match a given item in an  array.   See  "MATCH
+           Match  can  be  used to match a given item in an array.  See "MATCH
            SYNTAX" for more information.
 
        @move
-           This  indicator  is  the same as @insert, but is used together with
+           This indicator is the same as @insert, but is  used  together  with
            @match.
 
        @value
-           Used together with the @insert family of indicators,  to  insert  a
-           primitive  value at a specific location.  See EXAMPLES for an exam‐
+           Used  together  with  the @insert family of indicators, to insert a
+           primitive value at a specific location.  See EXAMPLES for an  exam-
            ple.
 
        @comment
-           These will be removed in the final output file, and is intended  to
+           These  will be removed in the final output file, and is intended to
            be used for internal comments.
 
        @id Global ID's that can be matched with @match.
 
 PATH TEMPLATING
-       Paths  specified  in @extends can be templated using the following syn‐
+       Paths specified in @extends can be templated using the  following  syn-
        tax: $variable and ${variable}.
 
        See the following example:
@@ -93,7 +97,7 @@ MATCH SYNTAX
                ['property'='value']
                [@SPECIAL=value]
 
-           If single quotes is used a string will be  matches.   Note  that  a
+           If  single  quotes  is  used a string will be matches.  Note that a
            string will still be checked even when they are omitted.
 
            The list of @SPECIAL are:
@@ -121,10 +125,10 @@ EXAMPLES
                  "@extends": ["b.json", "c.json"]
                }
 
-           This will take b.json as the base file.  Then apply c.json on  top.
+           This  will take b.json as the base file.  Then apply c.json on top.
            And finally apply the initial file on top of that output.
 
-           If  b.json  or  c.json  contains  @extends indicators these will be
+           If b.json or c.json contains  @extends  indicators  these  will  be
            resolved beforehand.
 
        @override
@@ -165,7 +169,7 @@ EXAMPLES
 
            The same applies for @append and @prepend.
 
-           If one wants to insert a primitive value, or an array, one can  use
+           If  one wants to insert a primitive value, or an array, one can use
            @value.  Taking the example from above:
 
                {

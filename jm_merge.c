@@ -10,6 +10,8 @@
 
 static int merge(jm_object_t * dest, jm_object_t * src,
 		 struct jm_globals_s *globals);
+static jm_object_t *recurseMerge(jm_object_t * node,
+				 struct jm_globals_s *globals);
 
 static int template(char *dest, char *src, jm_object_t * vars)
 {
@@ -221,6 +223,7 @@ static int mergeArray(jm_object_t * dest, jm_object_t * src,
 static int mergeObject(jm_object_t * dest, jm_object_t * src,
 		       struct jm_globals_s *globals)
 {
+	jm_object_t *tmpnode = NULL;
 	int ret = 0;
 
 	/* Check indicators */
@@ -235,12 +238,8 @@ static int mergeObject(jm_object_t * dest, jm_object_t * src,
 		else
 			tmp = dest->parent;
 
-		if ((dest = jm_query(tmp, match->value, globals)) == NULL) {
-			fprintf(stderr,
-				"%s: unrecognized or non matching selector '%s'\n",
-				PROGRAM_NAME, match->value);
+		if ((dest = jm_query(tmp, match->value, globals)) == NULL)
 			return 1;
-		}
 	}
 
 	if (src->indicators->move != NULL) {
@@ -271,6 +270,13 @@ static int mergeObject(jm_object_t * dest, jm_object_t * src,
 				return 0;
 				break;
 			}
+		case jm_type_string:
+			/* Delete property in string */
+			if ((tmpnode =
+			     jm_query(dest, delete->value,
+				      globals)) == NULL)
+				return 1;
+			jm_free(tmpnode);
 		case jm_type_array:
 			/* Delete properties listed in array */
 			next = delete->firstChild;
@@ -278,7 +284,11 @@ static int mergeObject(jm_object_t * dest, jm_object_t * src,
 				if (next->type != jm_type_string)
 					goto errind;
 
-				jm_free(jm_locate(dest, next->value));
+				if ((tmpnode =
+				     jm_query(dest, next->value,
+					      globals)) == NULL)
+					return 1;
+				jm_free(tmpnode);
 				next = next->nextSibling;
 			}
 			break;
@@ -300,6 +310,13 @@ static int mergeObject(jm_object_t * dest, jm_object_t * src,
 				return 0;
 			}
 			break;
+		case jm_type_string:
+			/* Delete property in string */
+			if ((tmpnode =
+			     jm_query(dest, override->value,
+				      globals)) == NULL)
+				return 1;
+			jm_free(tmpnode);
 		case jm_type_array:
 			/* Override properties listed in array.
 			 * Just delete all mentioned properties, that should do
@@ -309,13 +326,13 @@ static int mergeObject(jm_object_t * dest, jm_object_t * src,
 				if (next->type != jm_type_string)
 					goto errind;
 
-				jm_free(jm_locate(dest, next->value));
+				if ((tmpnode =
+				     jm_query(dest, next->value,
+					      globals)) == NULL)
+					return 1;
+				jm_free(tmpnode);
 				next = next->nextSibling;
 			}
-			break;
-		case jm_type_string:
-			/* Override single properpy */
-			jm_free(jm_locate(dest, override->value));
 			break;
 		default:
 			goto errind;
@@ -397,59 +414,80 @@ static int merge(jm_object_t * dest, jm_object_t * src,
 	return 0;
 }
 
+static jm_object_t *initMerge(jm_object_t * node, char *path,
+			      struct jm_globals_s *globals)
+{
+	jm_object_t *tmp = NULL, *src = NULL;
+	char olddir[PATH_MAX], filename[PATH_MAX], *dir = NULL;
+	dir = strdup(node->filename);
+	if (!getcwd(olddir, PATH_MAX)) {
+		free(dir);
+		return NULL;
+	}
+	dirname(dir);
+	if (strcmp(dir, node->filename) != 0 && chdir(dir)) {
+		free(dir);
+		return NULL;
+	}
+	free(dir);
+
+	template(filename, path, globals->vars);
+	if ((tmp = jm_parseFile(filename, globals)) == NULL) {
+		return NULL;
+	}
+
+	if ((src = recurseMerge(tmp, globals)) == NULL) {
+		jm_free(tmp);
+		return NULL;
+	}
+
+	if (chdir(olddir)) {
+		jm_free(tmp);
+		return NULL;
+	}
+
+	jm_free(tmp);
+	return src;
+}
+
 static jm_object_t *recurseMerge(jm_object_t * node,
 				 struct jm_globals_s *globals)
 {
 	jm_object_t *dest = NULL;
 
 	if (node->indicators && node->indicators->extends) {
-		jm_object_t *next = node->indicators->extends->firstChild,
-		    *tmp = NULL, *src = NULL;
-
-		while (next != NULL) {
-
-			char olddir[PATH_MAX], filename[PATH_MAX],
-			    *dir = NULL;
-			dir = strdup(node->filename);
-			if (!getcwd(olddir, PATH_MAX)) {
-				free(dir);
+		jm_object_t *extends = NULL, *next = NULL, *src = NULL;
+		extends = node->indicators->extends;
+		switch (extends->type) {
+		case jm_type_string:
+			if ((dest =
+			     initMerge(node, extends->value,
+				       globals)) == NULL) {
 				return NULL;
 			}
-			dirname(dir);
-			if (strcmp(dir, node->filename) != 0 && chdir(dir)) {
-				free(dir);
-				return NULL;
-			}
-			free(dir);
+			break;
+		case jm_type_array:
+			next = extends->firstChild;
+			while (next != NULL) {
+				if ((src =
+				     initMerge(node, next->value,
+					       globals)) == NULL) {
+					jm_free(dest);
+					return NULL;
+				}
+				if (!dest) {
+					dest = src;
+				} else {
+					merge(dest, src, globals);
+					jm_free(src);
+				}
 
-			template(filename, next->value, globals->vars);
-			if ((tmp =
-			     jm_parseFile(filename, globals)) == NULL) {
-				jm_free(dest);
-				return NULL;
+				next = next->nextSibling;
 			}
-
-			if ((src = recurseMerge(tmp, globals)) == NULL) {
-				jm_free(tmp);
-				jm_free(dest);
-				return NULL;
-			}
-
-			if (chdir(olddir)) {
-				jm_free(tmp);
-				jm_free(dest);
-				return NULL;
-			}
-
-			jm_free(tmp);
-			if (!dest) {
-				dest = src;
-			} else {
-				merge(dest, src, globals);
-				jm_free(src);
-			}
-
-			next = next->nextSibling;
+			break;
+		default:
+			return NULL;
+			break;
 		}
 	}
 
