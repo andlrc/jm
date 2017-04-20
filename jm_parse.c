@@ -38,8 +38,9 @@ static void err(struct jm_parser *p, char expected)
 	size_t row = p->lineno, col = p->ch - p->source - p->llineno;
 
 	if (*p->ch == '\0')
-		fprintf(stderr, "%s: unexpected EOF at %zu:%zu\n",
-			PROGRAM_NAME, row, col);
+		fprintf(stderr,
+			"%s: expected '%c' instead of EOF at %zu:%zu\n",
+			PROGRAM_NAME, expected, row, col);
 	else
 		fprintf(stderr,
 			"%s: expected '%c' instead of '%c' at %zu:%zu\n",
@@ -305,6 +306,7 @@ static char *string(struct jm_parser *p)
 	}
 
       err:
+	err(p, '"');
 	free(retbuff);
 	return NULL;
 }
@@ -446,9 +448,10 @@ static jm_object_t *value(struct jm_parser *p)
 		node = array(p);
 		break;
 	case '"':
-		str = string(p);
-		node = jm_newString(str);
-		free(str);
+		if ((str = string(p))) {
+			node = jm_newString(str);
+			free(str);
+		}
 		break;
 	case '-':
 		str = number(p);
