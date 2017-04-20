@@ -2,7 +2,12 @@
 #include <stdlib.h>
 #include "jm.h"
 
-struct jm_queryRule_s {
+struct jm_parser_s {
+	char *ch;		/* Current location */
+	char *selector;		/* Input selector, used for error messages */
+};
+
+struct jm_qrule_s {
 	enum type_e {
 		rule_type_unknown,
 		rule_type_haveAttr,
@@ -18,10 +23,29 @@ struct jm_queryRule_s {
 	int isString;		/* Boolean */
 	char *key;
 	char *value;
-	struct jm_queryRule_s *next;
+	struct jm_qrule_s *next;
 };
 
-static jm_object_t *query(jm_object_t * node, struct jm_queryRule_s *rule,
+static int isword(char c)
+{
+	return (c != '\0') && ((c >= 'a' && c <= 'z')
+			       || (c >= 'A' && c <= 'Z')
+			       || (c >= '0' && c <= '9')
+			       || (c == '_'));
+}
+
+static void err(struct jm_parser_s *p, char ex)
+{
+	char got[4] = "EOF";
+
+	if (*p->ch != '\0')
+		sprintf(got, "'%c'", *p->ch);
+	fprintf(stderr,
+		"%s: expected '%c' instead of %s in '%s'\n",
+		PROGRAM_NAME, ex, got, p->selector);
+}
+
+static jm_object_t *query(jm_object_t * node, struct jm_qrule_s *rule,
 			  struct jm_globals_s *globals)
 {
 	size_t rlen, nlen;
@@ -148,22 +172,37 @@ static jm_object_t *query(jm_object_t * node, struct jm_queryRule_s *rule,
 	return node;
 }
 
-jm_object_t *jm_query(jm_object_t * node, char *selector,
-		      struct jm_globals_s * globals)
+static void jm_freeqr(struct jm_qrule_s *rule)
 {
-	jm_object_t *ret = NULL;	/* Return value */
-	char *buff;
-	struct jm_queryRule_s *firstRule = NULL, *prevRule = NULL, *rule =
-	    NULL;
+	struct jm_qrule_s *last = NULL;
+	while (rule != NULL) {
+		free(rule->key);
+		free(rule->value);
+		last = rule;
+		rule = rule->next;
+		free(last);
+	}
+}
 
-	if (!node)
+static struct jm_qrule_s *parse(char *selector)
+{
+	char *buff;
+	struct jm_qrule_s *frule = NULL, *prevRule = NULL, *rule = NULL;
+	struct jm_parser_s *p = NULL;
+
+	if ((p = malloc(sizeof(struct jm_parser_s))) == NULL)
 		return NULL;
 
-	while (*selector != '\0') {
-		if ((rule = malloc(sizeof(struct jm_queryRule_s))) == NULL)
-			goto err;
-		if (!firstRule)
-			firstRule = rule;
+	p->selector = selector;
+	p->ch = selector;
+
+	while (*p->ch != '\0') {
+		if ((rule = malloc(sizeof(struct jm_qrule_s))) == NULL) {
+			jm_freeqr(frule);
+			return NULL;
+		}
+		if (!frule)
+			frule = rule;
 		else
 			prevRule->next = rule;
 
@@ -173,48 +212,53 @@ jm_object_t *jm_query(jm_object_t * node, char *selector,
 		rule->value = NULL;
 		rule->next = NULL;
 
-		switch (*selector++) {
+		switch (*p->ch++) {
 		case '[':
-			if (strncmp(selector, "@value=", 7) == 0) {
+			if (strncmp(p->ch, "@value=", 7) == 0) {
 				rule->type = rule_type_value;
-				selector += 7;
+				p->ch += 7;
 				goto attrval;
 			}
-			if (strncmp(selector, "@id=", 4) == 0) {
+			if (strncmp(p->ch, "@id=", 4) == 0) {
 				rule->type = rule_type_id;
-				selector += 4;
+				p->ch += 4;
 				goto attrval;
 			}
-			if (*selector == '\'') {
-				selector++;
+			if (*p->ch == '\'') {
+				p->ch++;
 				rule->isString = 1;
 			}
 
-			if ((buff = malloc(256)) == NULL)
-				goto err;
+			if ((buff = malloc(256)) == NULL) {
+				jm_freeqr(frule);
+				return NULL;
+			}
 			rule->key = buff;
 
-			while (*selector != '\0'
-			       && (rule->isString ? *selector !=
-				   '\'' : *selector != '='
-				   && *selector != ']')) {
+			while (*p->ch != '\0'
+			       && (rule->isString ? *p->ch !=
+				   '\'' : isword(*p->ch))) {
 				/* Character is escaped */
-				if (*selector == '\\')
-					selector++;
+				if (*p->ch == '\\')
+					p->ch++;
 
-				*buff++ = *selector++;
+				*buff++ = *p->ch++;
 			}
 
 			*buff = '\0';
 
-			if (rule->isString && *selector++ != '\'')
-				goto err;
+			if (rule->isString && *p->ch++ != '\'') {
+				jm_freeqr(frule);
+				p->ch--;	/* For error message */
+				err(p, '\'');
+				return NULL;
+			}
 
 			/* isString was set before for parsing the key, but it
 			 * really represent the value */
 			rule->isString = 0;
 
-			switch (*selector++) {
+			switch (*p->ch++) {
 			case ']':
 				rule->type = rule_type_haveAttr;
 				goto cont;
@@ -223,69 +267,92 @@ jm_object_t *jm_query(jm_object_t * node, char *selector,
 				rule->type = rule_type_equal;
 				break;
 			case '^':
-				if (*selector++ != '=')
-					goto err;
+				if (*p->ch != '=') {
+					jm_freeqr(frule);
+					err(p, '=');
+					return NULL;
+				}
+				p->ch++;
 				rule->type = rule_type_beginsWith;
 				break;
 			case '$':
-				if (*selector++ != '=')
-					goto err;
+				if (*p->ch != '=') {
+					jm_freeqr(frule);
+					err(p, '=');
+					return NULL;
+				}
+				p->ch++;
 				rule->type = rule_type_endsWith;
 				break;
 			case '*':
-				if (*selector++ != '=')
-					goto err;
+				if (*p->ch != '=') {
+					jm_freeqr(frule);
+					err(p, '=');
+					return NULL;
+				}
+				p->ch++;
 				rule->type = rule_type_contains;
 				break;
 			default:
-				goto err;
+				p->ch--;	/* For error message */
+				jm_freeqr(frule);
+				err(p, ']');
+				return NULL;
 				break;
 			}
 
 		      attrval:
 
 			/* Find value */
-			if (*selector == '\'') {
-				selector++;
+			if (*p->ch == '\'') {
+				p->ch++;
 				rule->isString = 1;
 			}
 
-			if ((buff = malloc(256)) == NULL)
-				goto err;
+			if ((buff = malloc(256)) == NULL) {
+				jm_freeqr(frule);
+				return NULL;
+			}
 			rule->value = buff;
 
-			while (*selector != '\0'
-			       && (rule->isString ? *selector !=
-				   '\'' : *selector != ']')) {
+			while (*p->ch != '\0'
+			       && (rule->isString ? *p->ch !=
+				   '\'' : *p->ch != ']')) {
 				/* Character is escaped */
-				if (*selector == '\\')
-					selector++;
+				if (*p->ch == '\\')
+					p->ch++;
 
-				*buff++ = *selector++;
+				*buff++ = *p->ch++;
 			}
 
 			*buff = '\0';
 
-			if (rule->isString && *selector++ != '\'')
-				goto err;
+			if (rule->isString && *p->ch != '\'') {
+				jm_freeqr(frule);
+				p->ch--;	/* For error message */
+				err(p, '\'');
+				return NULL;
+			}
 
-			if (*selector++ != ']')
-				goto err;
+			if (*p->ch != ']') {
+				err(p, ']');
+				jm_freeqr(frule);
+				return NULL;
+			}
+			p->ch++;
 		      cont:
 			break;
 		case '#':
 			/* ID match, an ID matches the following regex
 			 * [a-zA-Z0-9_] */
-			if ((buff = malloc(256)) == NULL)
-				goto err;
+			if ((buff = malloc(256)) == NULL) {
+				jm_freeqr(frule);
+				return NULL;
+			}
 			rule->value = buff;
 
-			while (*selector != '\0' &&
-			       ((*selector >= 'a' && *selector <= 'z')
-				|| (*selector >= 'A' && *selector <= 'Z')
-				|| (*selector >= '0' && *selector <= '9')
-				|| *selector == '_'))
-				*buff++ = *selector++;
+			while (isword(*p->ch))
+				*buff++ = *p->ch++;
 			*buff = '\0';
 			rule->type = rule_type_id;
 			break;
@@ -293,25 +360,27 @@ jm_object_t *jm_query(jm_object_t * node, char *selector,
 			rule->type = rule_type_all;
 			break;
 		default:
-			selector--;
+			p->ch--;
 			/* Directory like query */
-			if ((buff = malloc(256)) == NULL)
-				goto err;
+			if ((buff = malloc(256)) == NULL) {
+				jm_freeqr(frule);
+				return NULL;
+			}
 
-			if (*selector == '/')
-				selector++;
+			if (*p->ch == '/')
+				p->ch++;
 
 			rule->key = buff;
 
-			while (*selector != '/' && *selector != '['
-			       && *selector != '\0') {
-				*buff++ = *selector++;
+			while (*p->ch != '/' && *p->ch != '['
+			       && *p->ch != '\0') {
+				*buff++ = *p->ch++;
 			}
 			*buff = '\0';
 			rule->type = rule_type_directory;
 
-			if (*selector == '/')
-				selector++;
+			if (*p->ch == '/')
+				p->ch++;
 			break;
 		}
 
@@ -319,21 +388,28 @@ jm_object_t *jm_query(jm_object_t * node, char *selector,
 
 	}
 
-	ret = query(node, firstRule, globals);
+	return frule;
+}
 
-	goto cleanup;
-      err:
-	ret = NULL;
-      cleanup:
-	if (firstRule != NULL) {
-		rule = firstRule;
-		while (rule != NULL) {
-			free(rule->key);
-			free(rule->value);
-			prevRule = rule;
-			rule = rule->next;
-			free(prevRule);
-		}
+jm_object_t *jm_query(jm_object_t * node, char *selector,
+		      struct jm_globals_s * globals)
+{
+	struct jm_qrule_s *rule = NULL;
+	jm_object_t *match;
+
+	if (!node)
+		return NULL;
+
+	if ((rule = parse(selector)) == NULL)
+		return NULL;
+
+	if ((match = query(node, rule, globals)) == NULL) {
+		fprintf(stderr, "%s: selector '%s' disn't match\n",
+			PROGRAM_NAME, selector);
+		jm_freeqr(rule);
+		return NULL;
 	}
-	return ret;
+
+	jm_freeqr(rule);
+	return match;
 }
