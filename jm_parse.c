@@ -33,18 +33,19 @@ static char *number(struct jm_parser *p);
 static char *literal(struct jm_parser *p);
 static jm_object_t *value(struct jm_parser *p);
 
-static void err(struct jm_parser *p, char expected)
+static void err(struct jm_parser *p, char ex)
 {
 	size_t row = p->lineno, col = p->ch - p->source - p->llineno;
+	char expected[4] = "EOF", got[4] = "EOF";
 
-	if (*p->ch == '\0')
-		fprintf(stderr,
-			"%s: expected '%c' instead of EOF at %zu:%zu\n",
-			PROGRAM_NAME, expected, row, col);
-	else
-		fprintf(stderr,
-			"%s: expected '%c' instead of '%c' at %zu:%zu\n",
-			PROGRAM_NAME, expected, *p->ch, row, col);
+	if (ex != '\0')
+		sprintf(expected, "'%c'", ex);
+	if (*p->ch != '\0')
+		sprintf(got, "'%c'", *p->ch);
+
+	fprintf(stderr,
+		"%s: expected %s instead of %s at %zu:%zu\n",
+		PROGRAM_NAME, expected, got, row, col);
 }
 
 static int maybe(char *ch, char *seek)
@@ -216,7 +217,7 @@ static jm_object_t *object(struct jm_parser *p)
 		white(p);
 	}
 
-	/* Error here */
+	err(p, '}');
 	jm_free(object);
 	return NULL;
 }
@@ -237,7 +238,7 @@ static jm_object_t *array(struct jm_parser *p)
 		return array;
 	}
 
-	while (p->ch != '\0') {
+	while (*p->ch != '\0') {
 		jm_object_t *val = NULL;
 		if ((val = value(p)) == NULL) {
 			free(array);
@@ -259,7 +260,7 @@ static jm_object_t *array(struct jm_parser *p)
 		white(p);
 	}
 
-	/* Error here */
+	err(p, ']');
 	jm_free(array);
 	return NULL;
 }
@@ -454,15 +455,17 @@ static jm_object_t *value(struct jm_parser *p)
 		}
 		break;
 	case '-':
-		str = number(p);
-		node = jm_newLiteral(str);
-		free(str);
+		if ((str = number(p))) {
+			node = jm_newLiteral(str);
+			free(str);
+		}
 		break;
 	default:
-		str = *p->ch >= '0'
-		    && *p->ch <= '9' ? number(p) : literal(p);
-		node = jm_newLiteral(str);
-		free(str);
+		if ((str = *p->ch >= '0'
+		     && *p->ch <= '9' ? number(p) : literal(p))) {
+			node = jm_newLiteral(str);
+			free(str);
+		}
 		break;
 	}
 	return node;
@@ -484,8 +487,8 @@ jm_object_t *jm_parse(char *source)
 
 	result = value(p);
 	white(p);
-	if (*p->ch != '\0') {
-		fprintf(stderr, "%s: syntax errror\n", PROGRAM_NAME);
+	if (result && *p->ch != '\0') {
+		err(p, '\0');
 		free(p);
 		jm_free(result);
 		return NULL;

@@ -17,11 +17,11 @@ static void print_usage(void)
 static void print_help(void)
 {
 	printf("Usage: %s [OPTION] <file>\n"
-	       "  -s, --suffix       Output suffix, if left out then stdout is used\n"
 	       "  -p, --pretty       Prettify the output json\n"
+	       "  -s, --suffix       Output suffix, if left out then stdout is used\n"
 	       "  -v, --variable     Set key=value variable\n"
-	       "  -V, --version      Output version information\n"
-	       "  -h, --help         Show this help and exit\n",
+	       "  -h, --help         Show this help and exit\n"
+	       "  -V, --version      Output version information\n",
 	       PROGRAM_NAME);
 }
 
@@ -34,7 +34,7 @@ static struct option const long_options[] = {
 	{NULL, 0, NULL, 0}
 };
 
-char short_options[] = "Vhs:pv:";
+char short_options[] = "ps:v:hV";
 
 int main(int argc, char **argv)
 {

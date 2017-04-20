@@ -10,21 +10,21 @@ DESCRIPTION
        json_merger  is  a  way to merge JSON files based on indicators such as
        @extends, @match, @override and @delete.
 
+       -p, --pretty
+           Prettify, indent the output JSON in a human way.
+
        -s, --suffix
            Output suffix. Suffix added to  input  files  to  construct  output
            files.  If left blank then stdout is used.
 
-       -p, --pretty
-           Prettify, indent the output JSON in a human way.
-
        -v, --variable
            Set key=value variables. See PATH TEMPLATING.
 
-       -V, --version
-           Print version information.
-
        -h, --help
            Show help and exit.
+
+       -V, --version
+           Print version information.
 
 INDICATORS
        @extends

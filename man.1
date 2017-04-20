@@ -9,21 +9,21 @@ json_merger [OPTION]... [file]...
 json_merger is a way to merge JSON files based on indicators such as
 \fB@extends\fR, \fB@match\fR, \fB@override\fR and \fB@delete\fR.
 
+.IP "\fB-p\fR, \fB--pretty\fR" 4
+Prettify, indent the output JSON in a human way.
+
 .IP "\fB-s\fR, \fB--suffix\fR" 4
 Output suffix. Suffix added to input files to construct output files.  If left
 blank then \fBstdout\fR is used.
 
-.IP "\fB-p\fR, \fB--pretty\fR" 4
-Prettify, indent the output JSON in a human way.
-
 .IP "\fB-v\fR, \fB--variable\fR" 4
 Set \fBkey=value\fR variables. See \fBPATH TEMPLATING\fB.
 
-.IP "\fB-V\fR, \fB--version\fR" 4
-Print version information.
-
 .IP "\fB-h\fR, \fB--help\fR" 4
 Show help and exit.
+
+.IP "\fB-V\fR, \fB--version\fR" 4
+Print version information.
 
 .SH "INDICATORS"
 .IP "\fB@extends\fR" 4
