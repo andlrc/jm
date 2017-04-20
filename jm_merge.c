@@ -200,9 +200,11 @@ static int mergeArray(jm_object_t * dest, jm_object_t * src)
       errind:
 	fprintf(stderr, "%s: Error in ARRAY indicator\n", PROGRAM_NAME);
 	ret = 1;
+	goto cleanup;
       errmov:
 	fprintf(stderr, "%s: Error pushing ARRAY\n", PROGRAM_NAME);
 	ret = 1;
+	goto cleanup;
       cleanup:
 	insert = firstInsert;
 	while (insert != NULL) {

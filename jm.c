@@ -367,9 +367,9 @@ jm_object_t *jm_query(jm_object_t * node, char *selector)
 
 			while (*selector != '\0' &&
 			       ((*selector >= 'a' && *selector <= 'z')
-			       || (*selector >= 'A' && *selector <= 'Z')
-			       || (*selector >= '0' && *selector <= '9')
-			       || *selector == '_'))
+				|| (*selector >= 'A' && *selector <= 'Z')
+				|| (*selector >= '0' && *selector <= '9')
+				|| *selector == '_'))
 				*buff++ = *selector++;
 			*buff = '\0';
 			rule->type = rule_type_id;
