@@ -4,10 +4,12 @@
 #include "jm.h"
 
 struct jm_parser {
-	char *source;		/* Used for error messages, contains original source to parse */
+	char *source;		/* Used for error messages, contains original
+				   source to parse */
 	char *ch;		/* The current character */
 	size_t lineno;		/* Contains numbers of lines */
 	size_t llineno;		/* Contains offset for where last lineno is */
+	struct jm_globals_s *globals;	/* Contains storage for ID's */
 };
 
 enum jm_indicators_e {
@@ -21,8 +23,8 @@ enum jm_indicators_e {
 	jm_indicator_override,
 	jm_indicator_delete,
 	jm_indicator_match,
-	jm_indicators_id,
-	jm_indicators_comment
+	jm_indicator_id,
+	jm_indicator_comment
 };
 
 static void white(struct jm_parser *p);
@@ -58,50 +60,51 @@ static int maybe(char *ch, char *seek)
 
 static enum jm_indicators_e indicator(char *key)
 {
-	if (*key++ != '@')
-		return jm_indicator_unknown;
-
-	switch (*key) {
-	case 'a':
-		return strcmp(key, "append") == 0
-		    ? jm_indicator_append : jm_indicator_unknown;
-		break;
-	case 'c':
-		return strcmp(key, "comment") == 0
-		    ? jm_indicators_comment : jm_indicator_unknown;
-	case 'd':
-		return strcmp(key, "delete") == 0
-		    ? jm_indicator_delete : jm_indicator_unknown;
-		break;
-	case 'e':
-		return strcmp(key, "extends") == 0
-		    ? jm_indicator_extends : jm_indicator_unknown;
-		break;
-	case 'i':
-		return strcmp(key, "insert") == 0
-		    ? jm_indicator_insert : strcmp(key, "id") == 0
-		    ? jm_indicators_id : jm_indicator_unknown;;
-		break;
-	case 'm':
-		return strcmp(key, "move") == 0
-		    ? jm_indicator_move : strcmp(key, "match") == 0
-		    ? jm_indicator_match : jm_indicator_unknown;
-	case 'o':
-		return strcmp(key, "override") == 0
-		    ? jm_indicator_override : jm_indicator_unknown;
-		break;
-	case 'p':
-		return strcmp(key, "prepend") == 0
-		    ? jm_indicator_prepend : jm_indicator_unknown;
-		break;
-		break;
-	case 'v':
-		return strcmp(key, "value") == 0
-		    ? jm_indicator_value : jm_indicator_unknown;
-		break;
-	default:
-		return jm_indicator_unknown;
+	if (*key++ == '@') {
+		switch (*key++) {
+		case 'a':	/* @append */
+			return jm_indicator_append;
+			break;
+		case 'c':	/* @comment */
+			return jm_indicator_comment;
+		case 'd':	/* @delete */
+			return jm_indicator_delete;
+			break;
+		case 'e':	/* @extends */
+			return jm_indicator_extends;
+			break;
+		case 'i':	/* @id | @insert */
+			switch (*key++) {
+			case 'd':	/* @id */
+				return jm_indicator_id;
+				break;
+			case 'n':	/* @insert */
+				return jm_indicator_insert;
+				break;
+			}
+			break;
+		case 'm':	/* @match | @move */
+			switch (*key++) {
+			case 'a':	/* @match */
+				return jm_indicator_match;
+				break;
+			case 'o':	/* @move */
+				return jm_indicator_move;
+				break;
+			}
+			break;
+		case 'o':	/* @override */
+			return jm_indicator_override;
+			break;
+		case 'p':	/* @prepend */
+			return jm_indicator_prepend;
+			break;
+		case 'v':	/* @value */
+			return jm_indicator_value;
+			break;
+		}
 	}
+	return jm_indicator_unknown;
 }
 
 static void white(struct jm_parser *p)
@@ -183,16 +186,21 @@ static jm_object_t *object(struct jm_parser *p)
 		case jm_indicator_match:
 			object->indicators->match = val;
 			break;
-		case jm_indicators_id:
+		case jm_indicator_id:
 			/* TODO: Register node under the ID in `val->value' */
-			fprintf(stderr,
-				"%s: @ID isn't supported\n", PROGRAM_NAME);
-			jm_free(object);
+			if (val->type != jm_type_string) {
+				fprintf(stderr,
+					"%s ID indicator needs to be a string\n",
+					PROGRAM_NAME);
+				jm_free(object);
+				jm_free(val);
+				free(key);
+				return NULL;
+			}
+			jm_moveIntoId(p->globals->ids, val->value, object);
 			jm_free(val);
-			free(key);
-			return NULL;
 			break;
-		case jm_indicators_comment:
+		case jm_indicator_comment:
 			jm_free(val);
 			break;
 		default:
@@ -471,7 +479,7 @@ static jm_object_t *value(struct jm_parser *p)
 	return node;
 }
 
-jm_object_t *jm_parse(char *source)
+jm_object_t *jm_parse(char *source, struct jm_globals_s * globals)
 {
 	jm_object_t *result;
 
@@ -484,6 +492,7 @@ jm_object_t *jm_parse(char *source)
 	p->llineno = 0;
 	p->ch = source;
 	p->source = source;
+	p->globals = globals;
 
 	result = value(p);
 	white(p);
@@ -497,4 +506,51 @@ jm_object_t *jm_parse(char *source)
 	free(p);
 
 	return result;
+}
+
+jm_object_t *jm_parseFile(char *file, struct jm_globals_s * globals)
+{
+	FILE *fh = strcmp(file, "-") == 0 ? stdin : fopen(file, "rb");
+	char *buff = NULL, *source = NULL;
+	size_t buff_size = 256;
+	int ch;
+	jm_object_t *node = NULL;
+
+	if (!fh) {
+		fprintf(stderr, "%s: cannot access '%s'\n", PROGRAM_NAME,
+			file);
+		goto err;
+	}
+	if ((buff = malloc(buff_size)) == NULL)
+		goto err;
+	source = buff;
+	while ((ch = getc(fh)) != EOF) {
+		*buff++ = ch;
+
+		if (buff_size <= (size_t) (buff - source)) {
+			char *temp;
+			buff_size *= 2;
+			if ((temp = realloc(source, buff_size)) == NULL)
+				goto err;
+			buff = temp + (buff - source);
+			source = temp;
+		};
+	}
+
+	*buff = '\0';
+
+	if ((node = jm_parse(source, globals)) == NULL)
+		goto err;
+
+	free(source);
+	if (fh != stdin)
+		fclose(fh);
+	node->filename = strdup(file);
+	return node;
+
+      err:
+	free(source);
+	if (fh != NULL && fh != stdin)
+		fclose(fh);
+	return NULL;
 }

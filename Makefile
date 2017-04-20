@@ -10,7 +10,7 @@ CFLAGS	= -O3 -std=c89 -D_POSIX_C_SOURCE=200809L -Wall -Werror -Wextra \
 	  -DPROGRAM_VERSION="\"$(VERSION)\""
 
 CDEBUG	= -std=c89 -g -D_POSIX_C_SOURCE=200809L -DJMDEBUG
-CFILES	= json_merger.c jm.c jm_parse.c jm_serialize.c jm_merge.c
+CFILES	= json_merger.c jm.c jm_query.c jm_parse.c jm_serialize.c jm_merge.c
 HFILES	= jm.h
 TFILES	= $(CFILES) $(HFILES)
 OFILES	= *.o
@@ -19,12 +19,13 @@ OFILES	= *.o
 
 all:	$(PRGNAME)
 
-$(PRGNAME):	jm.o jm_parse.o jm_serialize.o jm_merge.o json_merger.o
+$(PRGNAME):	jm.o jm_query.o jm_parse.o jm_serialize.o jm_merge.o json_merger.o
 	$(CC) $(CFLAGS) -o $(PRGNAME) \
-		jm.o jm_parse.o jm_serialize.o jm_merge.o json_merger.o
+		jm.o jm_query.o jm_parse.o jm_serialize.o jm_merge.o json_merger.o
 
 json_merger.o:	jm.h json_merger.c
 jm.o:	jm.h jm.c
+jm_query.o:	jm.h jm_query.c
 jm_parse.o:	jm.h jm_parse.c
 jm_serialize.o:	jm.h jm_serialize.c
 jm_merge.o:	jm.h jm_merge.c

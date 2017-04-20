@@ -2,25 +2,6 @@
 #include <stdlib.h>
 #include "jm.h"
 
-struct jm_queryRule_s {
-	enum type_e {
-		rule_type_unknown,
-		rule_type_haveAttr,
-		rule_type_equal,
-		rule_type_beginsWith,
-		rule_type_endsWith,
-		rule_type_contains,
-		rule_type_value,
-		rule_type_all,
-		rule_type_id,
-		rule_type_directory
-	} type;
-	int isString;		/* Boolean */
-	char *key;
-	char *value;
-	struct jm_queryRule_s *next;
-};
-
 static jm_object_t *jm_newNode(void)
 {
 	jm_object_t *node = NULL;
@@ -125,302 +106,6 @@ jm_object_t *jm_locate(jm_object_t * node, char *key)
 		next = next->nextSibling;
 
 	return next;
-}
-
-static jm_object_t *query(jm_object_t * node, struct jm_queryRule_s *rule)
-{
-	size_t rlen, nlen;
-	char *val;
-
-	if (!node || !rule)
-		return NULL;
-
-	if (node->type == jm_type_array) {
-		jm_object_t *next = NULL;
-		next = node->firstChild;
-
-		while (next != NULL) {
-			if ((node = query(next, rule)) != NULL)
-				return node;
-			next = next->nextSibling;
-		}
-
-		return NULL;
-	}
-
-	while (rule != NULL) {
-		jm_object_t *childNode = NULL;
-		if (rule->key != NULL) {
-			childNode = jm_locate(node, rule->key);
-			if (!childNode)
-				return NULL;
-		}
-		switch (rule->type) {
-		case rule_type_unknown:
-			return NULL;
-			break;
-		case rule_type_haveAttr:
-			/* Everything done above */
-			break;
-		case rule_type_equal:
-			if (rule->isString
-			    && childNode->type != jm_type_string)
-				return NULL;
-			if (childNode->type != jm_type_string
-			    && childNode->type != jm_type_literal)
-				return NULL;
-			if (strcmp(childNode->value, rule->value) != 0)
-				return NULL;
-			break;
-		case rule_type_beginsWith:
-			if (childNode->type != jm_type_string
-			    && childNode->type != jm_type_literal)
-				return NULL;
-			rlen = strlen(rule->value);
-			if (strncmp(childNode->value, rule->value, rlen) !=
-			    0)
-				return NULL;
-			break;
-		case rule_type_endsWith:
-			if (childNode->type != jm_type_string
-			    && childNode->type != jm_type_literal)
-				return NULL;
-			rlen = strlen(rule->value);
-			nlen = strlen(childNode->value);
-			if (rlen > nlen)
-				return NULL;
-			if (strncmp(childNode->value + nlen - rlen,
-				    rule->value, rlen) != 0)
-				return NULL;
-			break;
-		case rule_type_contains:
-			if (childNode->type != jm_type_string
-			    && childNode->type != jm_type_literal)
-				return NULL;
-			val = childNode->value;
-			while (*val != '\0') {
-				if (strcmp(val, rule->value) == 0)
-					break;
-				val++;
-			}
-			if (*val == '\0')
-				return NULL;
-			break;
-		case rule_type_value:
-			if (node->type != jm_type_string
-			    && node->type != jm_type_literal)
-				return NULL;
-
-			if (strcmp(node->value, rule->value) != 0)
-				return NULL;
-
-		case rule_type_all:	/* noop */
-			break;
-		case rule_type_id:
-			fprintf(stderr,
-				"%s: ID selector not supported\n",
-				PROGRAM_NAME);
-			return NULL;
-			break;
-		case rule_type_directory:
-			if ((node = query(childNode, rule->next)))
-				return node;
-			return NULL;
-		}
-
-		rule = rule->next;
-	}
-
-	return node;
-}
-
-jm_object_t *jm_query(jm_object_t * node, char *selector)
-{
-	jm_object_t *ret = NULL;	/* Return value */
-	char *buff;
-	struct jm_queryRule_s *firstRule = NULL, *prevRule = NULL, *rule =
-	    NULL;
-
-	if (!node)
-		return NULL;
-
-	while (*selector != '\0') {
-		if ((rule = malloc(sizeof(struct jm_queryRule_s))) == NULL)
-			goto err;
-		if (!firstRule)
-			firstRule = rule;
-		else
-			prevRule->next = rule;
-
-		rule->type = rule_type_unknown;
-		rule->isString = 0;
-		rule->key = NULL;
-		rule->value = NULL;
-		rule->next = NULL;
-
-		switch (*selector++) {
-		case '[':
-			if (strncmp(selector, "@value=", 7) == 0) {
-				rule->type = rule_type_value;
-				selector += 7;
-				goto attrval;
-			}
-			if (strncmp(selector, "@id=", 4) == 0) {
-				rule->type = rule_type_id;
-				selector += 4;
-				goto attrval;
-			}
-			if (*selector == '\'') {
-				selector++;
-				rule->isString = 1;
-			}
-
-			if ((buff = malloc(256)) == NULL)
-				goto err;
-			rule->key = buff;
-
-			while (*selector != '\0'
-			       && (rule->isString ? *selector !=
-				   '\'' : *selector != '='
-				   && *selector != ']')) {
-				/* Character is escaped */
-				if (*selector == '\\')
-					selector++;
-
-				*buff++ = *selector++;
-			}
-
-			*buff = '\0';
-
-			if (rule->isString && *selector++ != '\'')
-				goto err;
-
-			/* isString was set before for parsing the key, but it
-			 * really represent the value */
-			rule->isString = 0;
-
-			switch (*selector++) {
-			case ']':
-				rule->type = rule_type_haveAttr;
-				goto cont;
-				break;
-			case '=':
-				rule->type = rule_type_equal;
-				break;
-			case '^':
-				if (*selector++ != '=')
-					goto err;
-				rule->type = rule_type_beginsWith;
-				break;
-			case '$':
-				if (*selector++ != '=')
-					goto err;
-				rule->type = rule_type_endsWith;
-				break;
-			case '*':
-				if (*selector++ != '=')
-					goto err;
-				rule->type = rule_type_contains;
-				break;
-			default:
-				goto err;
-				break;
-			}
-
-		      attrval:
-
-			/* Find value */
-			if (*selector == '\'') {
-				selector++;
-				rule->isString = 1;
-			}
-
-			if ((buff = malloc(256)) == NULL)
-				goto err;
-			rule->value = buff;
-
-			while (*selector != '\0'
-			       && (rule->isString ? *selector !=
-				   '\'' : *selector != ']')) {
-				/* Character is escaped */
-				if (*selector == '\\')
-					selector++;
-
-				*buff++ = *selector++;
-			}
-
-			*buff = '\0';
-
-			if (rule->isString && *selector++ != '\'')
-				goto err;
-
-			if (*selector++ != ']')
-				goto err;
-		      cont:
-			break;
-		case '#':
-			/* ID match, an ID matches the following regex
-			 * [a-zA-Z0-9_] */
-			if ((buff = malloc(256)) == NULL)
-				goto err;
-			rule->value = buff;
-
-			while (*selector != '\0' &&
-			       ((*selector >= 'a' && *selector <= 'z')
-				|| (*selector >= 'A' && *selector <= 'Z')
-				|| (*selector >= '0' && *selector <= '9')
-				|| *selector == '_'))
-				*buff++ = *selector++;
-			*buff = '\0';
-			rule->type = rule_type_id;
-			break;
-		case '*':
-			rule->type = rule_type_all;
-			break;
-		default:
-			selector--;
-			/* Directory like query */
-			if ((buff = malloc(256)) == NULL)
-				goto err;
-
-			if (*selector == '/')
-				selector++;
-
-			rule->key = buff;
-
-			while (*selector != '/' && *selector != '['
-			       && *selector != '\0') {
-				*buff++ = *selector++;
-			}
-			*buff = '\0';
-			rule->type = rule_type_directory;
-
-			if (*selector == '/')
-				selector++;
-			break;
-		}
-
-		prevRule = rule;
-
-	}
-
-	ret = query(node, firstRule);
-
-	goto cleanup;
-      err:
-	ret = NULL;
-      cleanup:
-	if (firstRule != NULL) {
-		rule = firstRule;
-		while (rule != NULL) {
-			free(rule->key);
-			free(rule->value);
-			prevRule = rule;
-			rule = rule->next;
-			free(prevRule);
-		}
-	}
-	return ret;
 }
 
 int jm_moveInto(jm_object_t * node, char *key, jm_object_t * child)
@@ -613,6 +298,54 @@ int jm_arrayInsertAt(jm_object_t * node, int index, jm_object_t * child)
 	return 0;
 }
 
+int jm_moveIntoId(jm_object_t * ids, char *id, jm_object_t * node)
+{
+	/* Create a wrapper node as each node can only have one parent and one
+	 * name.  The wrapper is an array, while the type of the inner node
+	 * needs to be jm_type_unknown to avoid freeing its child nodes */
+	int ret;
+	jm_object_t *wrp = NULL, *wrpinner;
+
+	if ((wrp = jm_newArray()) == NULL)
+		return 1;
+
+	if ((wrpinner = jm_newNode()) == NULL) {
+		free(wrp);
+		return 1;
+	}
+
+	if ((ret = jm_arrayPush(wrp, wrpinner))) {
+		jm_free(wrp);
+		jm_free(wrpinner);
+		return ret;
+	}
+
+	if ((ret = jm_moveInto(ids, id, wrp))) {
+		jm_free(wrp);
+		return ret;
+	}
+
+	/* Set the node as parent to inner wrapper, this makes it so we
+	 * don't mistakenly free it.  This limits us to a sub set of jm_*
+	 * methods, but it should be sufficient. */
+	wrpinner->firstChild = node;
+
+	return 0;
+}
+
+jm_object_t *jm_locateId(jm_object_t * ids, char *id)
+{
+	jm_object_t *wrp = NULL, *wrpinner = NULL;
+	if ((wrp = jm_locate(ids, id)) == NULL)
+		return NULL;
+
+	wrpinner = wrp->firstChild;
+
+	/* The stored node with the specific ID is always the inner wrappers
+	 * parent */
+	return wrpinner->firstChild;
+}
+
 static void jm_free_(jm_object_t * node)
 {
 	jm_object_t *next = NULL, *last = NULL;
@@ -622,8 +355,7 @@ static void jm_free_(jm_object_t * node)
 
 	switch (node->type) {
 	case jm_type_unknown:
-		fprintf(stderr,
-			"%s: cannot free UNKNOWN object\n", PROGRAM_NAME);
+		/* Abused to store ID's */
 		break;
 	case jm_type_object:
 		indicators = node->indicators;
@@ -678,51 +410,4 @@ void jm_free(jm_object_t * node)
 	jm_detach(node);
 
 	return jm_free_(node);
-}
-
-jm_object_t *jm_parseFile(char *file)
-{
-	FILE *fh = strcmp(file, "-") == 0 ? stdin : fopen(file, "rb");
-	char *buff = NULL, *source = NULL;
-	size_t buff_size = 256;
-	int ch;
-	jm_object_t *node = NULL;
-
-	if (!fh) {
-		fprintf(stderr, "%s: cannot access '%s'\n", PROGRAM_NAME,
-			file);
-		goto err;
-	}
-	if ((buff = malloc(buff_size)) == NULL)
-		goto err;
-	source = buff;
-	while ((ch = getc(fh)) != EOF) {
-		*buff++ = ch;
-
-		if (buff_size <= (size_t) (buff - source)) {
-			char *temp;
-			buff_size *= 2;
-			if ((temp = realloc(source, buff_size)) == NULL)
-				goto err;
-			buff = temp + (buff - source);
-			source = temp;
-		};
-	}
-
-	*buff = '\0';
-
-	if ((node = jm_parse(source)) == NULL)
-		goto err;
-
-	free(source);
-	if (fh != stdin)
-		fclose(fh);
-	node->filename = strdup(file);
-	return node;
-
-      err:
-	free(source);
-	if (fh != NULL && fh != stdin)
-		fclose(fh);
-	return NULL;
 }

@@ -1,0 +1,5 @@
+{
+	"@extends": [ "14-B.json" ],
+	"@match": "#a/..",
+	"@delete": [ "d" ]
+}

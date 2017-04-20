@@ -38,13 +38,19 @@ char short_options[] = "ps:v:hV";
 
 int main(int argc, char **argv)
 {
-	jm_object_t *vars = NULL;
+	struct jm_globals_s *globals = NULL;
 	char *suffix = NULL, *tmpbuf, *varkey, *infile;
 	size_t suflen = 0;
 	int ch, argind, pretty = 0;
 
-	if ((vars = jm_newObject()) == NULL)
-		exit(EXIT_FAILURE);
+	if ((globals = malloc(sizeof(struct jm_globals_s))) == NULL)
+		goto err;
+
+	globals->vars = NULL;
+	globals->ids = NULL;
+
+	if ((globals->vars = jm_newObject()) == NULL)
+		goto err;
 
 	while ((ch =
 		getopt_long(argc, argv, short_options, long_options,
@@ -52,13 +58,11 @@ int main(int argc, char **argv)
 		switch (ch) {
 		case 'V':
 			print_version();
-			jm_free(vars);
-			exit(EXIT_SUCCESS);
+			goto err;
 			break;
 		case 'h':
 			print_help();
-			jm_free(vars);
-			exit(EXIT_SUCCESS);
+			goto err;
 			break;
 		case 's':
 			suffix = optarg;
@@ -74,11 +78,12 @@ int main(int argc, char **argv)
 				tmpbuf++;
 			}
 			*tmpbuf++ = '\0';
-			jm_moveInto(vars, varkey, jm_newString(tmpbuf));
+			jm_moveInto(globals->vars, varkey,
+				    jm_newString(tmpbuf));
 			free(varkey);
 			break;
 		default:
-			jm_free(vars);
+			goto err;
 			print_usage();
 			exit(EXIT_FAILURE);
 		}
@@ -90,17 +95,22 @@ int main(int argc, char **argv)
 	do {
 		jm_object_t *root = NULL, *out = NULL;
 
+		if (globals->ids)
+			jm_free(globals->ids);
+
+		if ((globals->ids = jm_newObject()) == NULL)
+			goto err;
+
 		if (argind < argc)
 			infile = argv[argind];
 
-		if ((root = jm_parseFile(infile)) == NULL)
-			exit(EXIT_FAILURE);
+		if ((root = jm_parseFile(infile, globals)) == NULL)
+			goto err;
 
 
-		if (!(out = jm_merge(root, vars))) {
+		if (!(out = jm_merge(root, globals))) {
 			jm_free(root);
-			jm_free(vars);
-			exit(EXIT_FAILURE);
+			goto err;
 		}
 		jm_free(root);
 
@@ -120,6 +130,14 @@ int main(int argc, char **argv)
 		jm_free(out);
 	} while (++argind < argc);
 
-	jm_free(vars);
+	jm_free(globals->vars);
+	jm_free(globals->ids);
+	free(globals);
 	exit(EXIT_SUCCESS);
+
+      err:
+	jm_free(globals->vars);
+	jm_free(globals->ids);
+	free(globals);
+	exit(EXIT_FAILURE);
 }
