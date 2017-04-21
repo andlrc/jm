@@ -12,28 +12,28 @@ struct jm_object_s;
 typedef struct jm_object_s jm_object_t;
 
 enum jm_type_e {
-	jm_type_unknown,
 	jm_type_object,
 	jm_type_array,
 	jm_type_string,
-	jm_type_literal		/* null, numbers, booleans and JavaScript */
+	jm_type_literal,	/* null, numbers, booleans and JavaScript */
+	jm_type_lid,		/* @id */
+	jm_type_lappend,	/* @append */
+	jm_type_lprepend,	/* @prepend */
+	jm_type_linsert,	/* @insert */
+	jm_type_ldelete,	/* @delete */
+	jm_type_loverride,	/* @override */
+	jm_type_lmatch		/* @match */
 };
 
 /* Indicators set on objects */
 struct jm_indicators_s {
 	jm_object_t *extends;	/* Array */
 	/* Used for arrays */
-	jm_object_t *append;	/* Boolean */
-	jm_object_t *prepend;	/* Boolean */
-	jm_object_t *insert;	/* Number */
 	/* Works the same as @insert, but used with @match */
 	jm_object_t *move;	/* Number */
-	/* Remap value of the object to what's in @value (Usefull for appending
-	 * / prepending to arrays */
 	jm_object_t *value;	/* Anything */
-	jm_object_t *override;	/* Boolean / Array of keys */
-	jm_object_t *delete;	/* Boolean / Array of keys */
-	jm_object_t *match;	/* String */
+	jm_object_t *inserter;	/* @append, @prepend, @insert */
+	jm_object_t *matchers;	/* @override, @delete, @match */
 };
 
 struct jm_object_s {
@@ -54,6 +54,7 @@ struct jm_globals_s {
 };
 
 /* Functions */
+jm_object_t *jm_newNode(enum jm_type_e type);
 jm_object_t *jm_newObject(void);
 jm_object_t *jm_newArray(void);
 jm_object_t *jm_newString(char *buff);

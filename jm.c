@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include "jm.h"
 
-static jm_object_t *jm_newNode(void)
+jm_object_t *jm_newNode(enum jm_type_e type)
 {
 	jm_object_t *node = NULL;
 
@@ -10,7 +10,7 @@ static jm_object_t *jm_newNode(void)
 		return NULL;
 	}
 
-	node->type = jm_type_unknown;
+	node->type = type;
 	node->name = NULL;
 	node->indicators = NULL;
 	node->value = NULL;
@@ -28,7 +28,7 @@ jm_object_t *jm_newObject(void)
 	jm_object_t *node = NULL;
 	struct jm_indicators_s *indicators = NULL;
 
-	if ((node = jm_newNode()) == NULL)
+	if ((node = jm_newNode(jm_type_object)) == NULL)
 		return NULL;
 
 	if ((indicators = malloc(sizeof(struct jm_indicators_s))) == NULL) {
@@ -37,17 +37,12 @@ jm_object_t *jm_newObject(void)
 	}
 
 	indicators->extends = NULL;
-	indicators->append = NULL;
-	indicators->prepend = NULL;
-	indicators->insert = NULL;
 	indicators->move = NULL;
 	indicators->value = NULL;
-	indicators->override = NULL;
-	indicators->delete = NULL;
-	indicators->match = NULL;
+	indicators->inserter = NULL;
+	indicators->matchers = NULL;
 
 	node->indicators = indicators;
-	node->type = jm_type_object;
 
 	return node;
 }
@@ -56,10 +51,8 @@ jm_object_t *jm_newArray(void)
 {
 	jm_object_t *node = NULL;
 
-	if ((node = jm_newNode()) == NULL)
+	if ((node = jm_newNode(jm_type_array)) == NULL)
 		return NULL;
-
-	node->type = jm_type_array;
 
 	return node;
 }
@@ -68,10 +61,9 @@ jm_object_t *jm_newString(char *buff)
 {
 	jm_object_t *node = NULL;
 
-	if ((node = jm_newNode()) == NULL)
+	if ((node = jm_newNode(jm_type_string)) == NULL)
 		return NULL;
 
-	node->type = jm_type_string;
 	node->value = strdup(buff);
 
 	return node;
@@ -81,10 +73,9 @@ jm_object_t *jm_newLiteral(char *buff)
 {
 	jm_object_t *node = NULL;
 
-	if ((node = jm_newNode()) == NULL)
+	if ((node = jm_newNode(jm_type_literal)) == NULL)
 		return NULL;
 
-	node->type = jm_type_literal;
 	node->value = strdup(buff);
 
 	return node;
@@ -309,7 +300,7 @@ int jm_moveIntoId(jm_object_t * ids, char *id, jm_object_t * node)
 	if ((wrp = jm_newArray()) == NULL)
 		return 1;
 
-	if ((wrpinner = jm_newNode()) == NULL) {
+	if ((wrpinner = jm_newNode(jm_type_lid)) == NULL) {
 		free(wrp);
 		return 1;
 	}
@@ -354,30 +345,21 @@ static void jm_free_(jm_object_t * node)
 	free(node->name);
 
 	switch (node->type) {
-	case jm_type_unknown:
-		/* Abused to store ID's */
+	case jm_type_lid:
 		break;
 	case jm_type_object:
 		indicators = node->indicators;
 
 		if (indicators->extends)
 			jm_free_(indicators->extends);
-		if (indicators->append)
-			jm_free_(indicators->append);
-		if (indicators->prepend)
-			jm_free_(indicators->prepend);
-		if (indicators->insert)
-			jm_free_(indicators->insert);
+		if (indicators->inserter)
+			jm_free_(indicators->inserter);
 		if (indicators->move)
 			jm_free_(indicators->move);
 		if (indicators->value)
 			jm_free_(indicators->value);
-		if (indicators->override)
-			jm_free_(indicators->override);
-		if (indicators->delete)
-			jm_free_(indicators->delete);
-		if (indicators->match)
-			jm_free_(indicators->match);
+		if (indicators->matchers)
+			jm_free_(indicators->matchers);
 
 		free(indicators);
 
@@ -392,6 +374,12 @@ static void jm_free_(jm_object_t * node)
 		break;
 	case jm_type_string:
 	case jm_type_literal:
+	case jm_type_lappend:
+	case jm_type_lprepend:
+	case jm_type_linsert:
+	case jm_type_ldelete:
+	case jm_type_loverride:
+	case jm_type_lmatch:
 		free(node->value);
 		break;
 	}

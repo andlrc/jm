@@ -64,13 +64,17 @@ static int serialize(FILE * outfh, jm_object_t * node, int flags,
 	jm_object_t *next;
 
 	switch (node->type) {
-	case jm_type_unknown:
-		fprintf(stderr,
-			"%s: Cannot serialize type UNKNOWN\n",
+	case jm_type_lid:
+	case jm_type_lprepend:
+	case jm_type_lappend:
+	case jm_type_linsert:
+	case jm_type_ldelete:
+	case jm_type_loverride:
+	case jm_type_lmatch:
+		fprintf(stderr, "%s: cannot serialize INDICATOR nodes\n",
 			PROGRAM_NAME);
 		return 1;
 		break;
-
 	case jm_type_object:
 		fprintf(outfh, "{");
 		isFirst = 1;

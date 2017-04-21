@@ -30,15 +30,19 @@ INDICATORS
        @extends
            An array or string of path names to files which should be extended.
 
-       @delete
-           An array, string or true indicating that the given property will be
-           deleted.  MATCH SYNTAX is supported. See @override.
-
        @override
            An array, string or true indicating that the given property will be
-           overridden.  When used with true the whole node will be overridden.
+           overridden.  MATCH SYNTAX is supported.  See @delete
+
+       @delete
+           An array, string or true indicating that the given property will be
+           deleted.   When  used  with true the whole node will be overridden.
            When used with an array only the listed properties will be overrid-
-           den.   MATCH SYNTAX is supported.
+           den.  MATCH SYNTAX is supported.
+
+           @delete  will  always  delete  the listed nodes, while ignoring all
+           regular properties, while @override will empty  the  listed  nodes,
+           and merge ontop of that, this will also leave an empty object.
 
        @append, @prepend, @insert
            When  working with arrays the default behaviour will be to merge on

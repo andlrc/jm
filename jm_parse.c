@@ -50,11 +50,101 @@ static void err(struct jm_parser *p, char ex)
 		PROGRAM_NAME, expected, got, row, col);
 }
 
-static int maybe(char *ch, char *seek)
+static int add_inserter(jm_object_t * object, jm_object_t * in,
+			enum jm_indicators_e type)
 {
-	while (*seek != '\0')
-		if (*ch++ != *seek++)
+	jm_object_t *inserter = NULL;
+
+	switch (in->type) {
+	case jm_type_literal:	/* @append: true, @prepend: true, @insert: NUM */
+		switch (type) {
+		case jm_indicator_append:
+			inserter = jm_newNode(jm_type_lappend);
+			break;
+		case jm_indicator_prepend:
+			inserter = jm_newNode(jm_type_lprepend);
+			break;
+		case jm_indicator_insert:
+			inserter = jm_newNode(jm_type_linsert);
+			inserter->value = strdup(in->value);
+			break;
+		default:
 			return 1;
+			break;
+		}
+		object->indicators->inserter = inserter;
+		break;
+	default:
+		return 1;
+		break;
+	}
+
+	return 0;
+}
+
+static int add_matcher_(jm_object_t * matchers, char *selector,
+			enum jm_indicators_e type)
+{
+	jm_object_t *matcher = NULL;
+	switch (type) {
+	case jm_indicator_delete:
+		matcher = jm_newNode(jm_type_ldelete);
+		matcher->value = strdup(selector);
+		return jm_arrayPush(matchers, matcher);
+		break;
+	case jm_indicator_override:
+		matcher = jm_newNode(jm_type_loverride);
+		matcher->value = strdup(selector);
+		return jm_arrayPush(matchers, matcher);
+		break;
+	case jm_indicator_match:	/* Match have to come first as it can be
+					   combined with the others */
+		matcher = jm_newNode(jm_type_lmatch);
+		matcher->value = strdup(selector);
+		return jm_arrayInsertAt(matchers, 0, matcher);
+		break;
+	default:
+		return 1;
+		break;
+	}
+}
+
+static int add_matcher(jm_object_t * object, jm_object_t * in, enum
+		       jm_indicators_e type)
+{
+	jm_object_t *matchers = NULL, *next = NULL;
+	matchers = object->indicators->matchers;
+	if (!matchers) {
+		matchers = jm_newArray();
+		object->indicators->matchers = matchers;
+	}
+
+	switch (in->type) {
+	case jm_type_literal:	/* @delete: true, @override: true */
+		if (strcmp(in->value, "true") == 0) {
+			/* Match itself */
+			return add_matcher_(matchers, ".", type);
+		}
+		break;
+	case jm_type_array:	/* @delete: ["selector"], @override: ["selector"] */
+		next = in->firstChild;
+		while (next) {
+			int ret = 0;
+			if ((ret =
+			     add_matcher_(matchers, next->value, type)))
+				return ret;
+			next = next->nextSibling;
+		}
+		break;
+	case jm_type_string:	/* @delete: "selector", @override: "selector",
+				   @match: "selector" */
+		return add_matcher_(matchers, in->value, type);
+		break;
+	default:
+		return 1;
+		break;
+	}
+
 	return 0;
 }
 
@@ -138,6 +228,7 @@ static jm_object_t *object(struct jm_parser *p)
 	while (*p->ch != '\0') {
 		jm_object_t *val = NULL;
 		char *key = NULL;
+		enum jm_indicators_e type;
 
 		if ((key = string(p)) == NULL) {
 			jm_free(object);
@@ -158,36 +249,40 @@ static jm_object_t *object(struct jm_parser *p)
 			return NULL;
 		}
 
-		switch (indicator(key)) {
+		type = indicator(key);
+		switch (type) {
 		case jm_indicator_extends:
 			object->indicators->extends = val;
 			break;
-		case jm_indicator_append:
-			object->indicators->append = val;
-			break;
+		case jm_indicator_append:	/* Store all inserter together */
 		case jm_indicator_prepend:
-			object->indicators->prepend = val;
-			break;
 		case jm_indicator_insert:
-			object->indicators->insert = val;
+			if (add_inserter(object, val, type)) {
+				jm_free(val);
+				jm_free(object);
+				free(key);
+				return NULL;
+			}
+			/* Should not free val */
 			break;
-		case jm_indicator_move:
+		case jm_indicator_move:	/* TODO: Can this be merged with @insert */
 			object->indicators->move = val;
 			break;
 		case jm_indicator_value:
 			object->indicators->value = val;
 			break;
-		case jm_indicator_override:
-			object->indicators->override = val;
-			break;
+		case jm_indicator_override:	/* Store all matchers together */
 		case jm_indicator_delete:
-			object->indicators->delete = val;
-			break;
 		case jm_indicator_match:
-			object->indicators->match = val;
+			if (add_matcher(object, val, type)) {
+				jm_free(val);
+				jm_free(object);
+				free(key);
+				return NULL;
+			}
+			jm_free(val);
 			break;
 		case jm_indicator_id:
-			/* TODO: Register node under the ID in `val->value' */
 			if (val->type != jm_type_string) {
 				fprintf(stderr,
 					"%s ID indicator needs to be a string\n",
@@ -209,7 +304,6 @@ static jm_object_t *object(struct jm_parser *p)
 
 		free(key);
 		white(p);
-
 		if (*p->ch == '}') {
 			p->ch++;
 			return object;
@@ -221,7 +315,6 @@ static jm_object_t *object(struct jm_parser *p)
 			return NULL;
 		}
 		p->ch++;
-
 		white(p);
 	}
 
@@ -239,8 +332,7 @@ static jm_object_t *array(struct jm_parser *p)
 	p->ch++;
 	jm_object_t *array = jm_newArray();
 	white(p);
-
-	/* Empty array */
+/* Empty array */
 	if (*p->ch == ']') {
 		p->ch++;
 		return array;
@@ -273,21 +365,19 @@ static jm_object_t *array(struct jm_parser *p)
 	return NULL;
 }
 
-static char *string(struct jm_parser *p)
+static char *string(struct jm_parser
+		    *p)
 {
 	if (*p->ch != '"') {
 		err(p, '"');
 		return NULL;
 	}
 	p->ch++;
-
 	size_t buff_size = 256;
 	char *buff = NULL, *retbuff = NULL;
-
 	if ((buff = malloc(buff_size)) == NULL)
 		return NULL;
 	retbuff = buff;
-
 	while (*p->ch != '\0') {
 		switch (*p->ch) {
 		case '"':
@@ -297,13 +387,12 @@ static char *string(struct jm_parser *p)
 			break;
 		case '\\':
 			*buff++ = *p->ch++;
-			/* Fallthough */
+/* Fallthough */
 		default:
 			*buff++ = *p->ch;
 		}
 		p->ch++;
-
-		/* At most two bytes is added */
+/* At most two bytes is added */
 		if (buff_size - 1 <= (size_t) (buff - retbuff)) {
 			char *temp;
 			buff_size *= 2;
@@ -320,17 +409,15 @@ static char *string(struct jm_parser *p)
 	return NULL;
 }
 
-static char *number(struct jm_parser *p)
+static char *number(struct jm_parser
+		    *p)
 {
 	char *buff = NULL, *retbuff = NULL;
-
 	if ((buff = malloc(256)) == NULL)
 		return 0;
 	retbuff = buff;
-
 	if (*p->ch == '-')
 		*buff++ = *p->ch++;
-
 	while (*p->ch >= '0' && *p->ch <= '9') {
 		*buff++ = *p->ch++;
 	}
@@ -346,7 +433,6 @@ static char *number(struct jm_parser *p)
 		*buff++ = *p->ch++;
 		if (*p->ch == '-' || *p->ch == '+')
 			*buff++ = *p->ch;
-
 		while (*p->ch >= '0' && *p->ch <= '9') {
 			*buff++ = *p->ch++;
 		}
@@ -356,9 +442,11 @@ static char *number(struct jm_parser *p)
 	return retbuff;
 }
 
-static char *literal(struct jm_parser *p)
+static char *literal(struct jm_parser
+		     *p)
 {
-	/* Code buffer */
+
+/* Code buffer */
 	char *buff = NULL, *retbuff = NULL;
 	size_t buff_size = 256;
 	struct brackets_s {
@@ -367,20 +455,18 @@ static char *literal(struct jm_parser *p)
 		int par;
 	} brackets = {
 	0};
-
 	white(p);
-
-	if (maybe(p->ch, "true") == 0) {
+	if (strncmp(p->ch, "true", 4) == 0) {
 		p->ch += 4;
 		return strdup("true");
 	}
 
-	if (maybe(p->ch, "false") == 0) {
+	if (strncmp(p->ch, "false", 5) == 0) {
 		p->ch += 5;
 		return strdup("false");
 	}
 
-	if (maybe(p->ch, "null") == 0) {
+	if (strncmp(p->ch, "null", 4) == 0) {
 		p->ch += 4;
 		return strdup("null");
 	}
@@ -388,10 +474,11 @@ static char *literal(struct jm_parser *p)
 	if ((buff = malloc(buff_size)) == NULL)
 		return NULL;
 	retbuff = buff;
-
 	while (*p->ch != '\0') {
-		/* Slurp everything until a closing {curly, square} bracket
-		 * or comma. Also count pairs of opening and closing brackets */
+
+/* Slurp everything until a closing {curly, square} bracket
+
+ * or comma. Also count pairs of opening and closing brackets */
 		if (!brackets.cur && !brackets.sqr && !brackets.par) {
 			if (*p->ch == '}' || *p->ch == ']'
 			    || *p->ch == ',') {
@@ -426,7 +513,6 @@ static char *literal(struct jm_parser *p)
 		}
 
 		*buff++ = *p->ch++;
-
 		if (buff_size <= (size_t) (buff - retbuff)) {
 			char *temp;
 			buff_size *= 2;
@@ -448,7 +534,6 @@ static jm_object_t *value(struct jm_parser *p)
 	jm_object_t *node = NULL;
 	char *str;
 	white(p);
-
 	switch (*p->ch) {
 	case '{':
 		node = object(p);
@@ -482,18 +567,15 @@ static jm_object_t *value(struct jm_parser *p)
 jm_object_t *jm_parse(char *source, struct jm_globals_s * globals)
 {
 	jm_object_t *result;
-
 	struct jm_parser *p = NULL;
-
-	if ((p = malloc(sizeof(struct jm_parser))) == NULL)
+	if ((p = malloc(sizeof(struct jm_parser)))
+	    == NULL)
 		return NULL;
-
 	p->lineno = 1;
 	p->llineno = 0;
 	p->ch = source;
 	p->source = source;
 	p->globals = globals;
-
 	result = value(p);
 	white(p);
 	if (result && *p->ch != '\0') {
@@ -504,21 +586,21 @@ jm_object_t *jm_parse(char *source, struct jm_globals_s * globals)
 	}
 
 	free(p);
-
 	return result;
 }
 
 jm_object_t *jm_parseFile(char *file, struct jm_globals_s * globals)
 {
-	FILE *fh = strcmp(file, "-") == 0 ? stdin : fopen(file, "rb");
+	FILE *fh = strcmp(file,
+			  "-") == 0 ? stdin : fopen(file,
+						    "rb");
 	char *buff = NULL, *source = NULL;
 	size_t buff_size = 256;
 	int ch;
 	jm_object_t *node = NULL;
-
 	if (!fh) {
-		fprintf(stderr, "%s: cannot access '%s'\n", PROGRAM_NAME,
-			file);
+		fprintf(stderr,
+			"%s: cannot access '%s'\n", PROGRAM_NAME, file);
 		goto err;
 	}
 	if ((buff = malloc(buff_size)) == NULL)
@@ -526,7 +608,6 @@ jm_object_t *jm_parseFile(char *file, struct jm_globals_s * globals)
 	source = buff;
 	while ((ch = getc(fh)) != EOF) {
 		*buff++ = ch;
-
 		if (buff_size <= (size_t) (buff - source)) {
 			char *temp;
 			buff_size *= 2;
@@ -538,16 +619,13 @@ jm_object_t *jm_parseFile(char *file, struct jm_globals_s * globals)
 	}
 
 	*buff = '\0';
-
 	if ((node = jm_parse(source, globals)) == NULL)
 		goto err;
-
 	free(source);
 	if (fh != stdin)
 		fclose(fh);
 	node->filename = strdup(file);
 	return node;
-
       err:
 	free(source);
 	if (fh != NULL && fh != stdin)

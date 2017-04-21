@@ -29,15 +29,19 @@ Print version information.
 .IP "\fB@extends\fR" 4
 An array or string of path names to files which should be extended.
 
-.IP "\fB@delete\fR" 4
-An array, string or \fBtrue\FR indicating that the given property will be
-deleted.  \fBMATCH SYNTAX\fR is supported. See \fB@override\fR.
-
 .IP "\fB@override\fR" 4
 An array, string or \fBtrue\fR indicating that the given property will be
-overridden.  When used with \fBtrue\fR the whole node will be overridden. When
-used with an array only the listed properties will be overridden.  \fB MATCH
+overridden.  \fBMATCH SYNTAX\fR is supported.  See \fB@delete\fR
+
+.IP "\fB@delete\fR" 4
+An array, string or \fBtrue\fR indicating that the given property will be
+deleted.  When used with \fBtrue\fR the whole node will be overridden. When
+used with an array only the listed properties will be overridden.  \fBMATCH
 SYNTAX\fR is supported.
+
+\fB@delete\fR will always delete the listed nodes, while ignoring all regular
+properties, while \fB@override\fR will empty the listed nodes, and merge ontop
+of that, this will also leave an empty object.
 
 .IP "\fB@append\fR, \fB@prepend\fR, \fB@insert\fR" 4
 When working with arrays the default behaviour will be to merge on indexes, i.e.

@@ -58,23 +58,12 @@ static int mergeArray(jm_object_t * dest, jm_object_t * src,
 	/* Iterate array and call recursive */
 	int ret = 0;
 	jm_object_t *srcNext = NULL, *srcNext2 = NULL, *destNext = NULL;
-	int prependIndex = 0;	/* Prepends should insert at index 0, 1, 2
-				   accordantly, to make it clear in the JSON how
-				   the nodes are inserted */
 
-	/* Append, prepend and insert should happen after everything else to
-	 * prevent applying merge on an newly inserted value */
-	struct insert_s {
-		enum insertType_e {
-			jm_insertType_append,
-			jm_insertType_prepend,
-			jm_insertType_insert
-		} type;
-		int prependIndex;
-		jm_object_t *indicator;
-		jm_object_t *node;
-		struct insert_s *next;
-	} *insert = NULL, *lastInsert = NULL, *firstInsert = NULL;
+	struct inserter_s {
+		jm_object_t *src;
+		jm_object_t *inserter;
+		struct inserter_s *next;
+	} *finserter = NULL, *inserter;
 
 	/* Move src over dest */
 	if (dest->type != src->type) {
@@ -88,257 +77,149 @@ static int mergeArray(jm_object_t * dest, jm_object_t * src,
 	while (srcNext != NULL) {
 		srcNext2 = srcNext->nextSibling;
 
-		if (srcNext->type == jm_type_object) {
-			if (srcNext->indicators->append != NULL) {
-				jm_object_t *ind =
-				    srcNext->indicators->append;
-				if (ind->type != jm_type_literal
-				    || strcmp(ind->value, "true") != 0)
-					goto errind;
-				if ((insert =
-				     malloc(sizeof(struct insert_s))) ==
-				    NULL)
-					goto errind;
-				insert->type = jm_insertType_append;
-				insert->indicator = ind;
-				insert->node = srcNext;
-				insert->next = NULL;
-				if (lastInsert == NULL)
-					firstInsert = insert;
-				else
-					lastInsert->next = insert;
-				lastInsert = insert;
-				goto cont;
+		/* inserters happen after the array is merged */
+		if (srcNext->type == jm_type_object
+		    && srcNext->indicators->inserter) {
+			if (finserter == NULL) {
+				finserter =
+				    malloc(sizeof(struct inserter_s));
+				inserter = finserter;
+			} else {
+				inserter->next =
+				    malloc(sizeof(struct inserter_s));
+				inserter = inserter->next;
 			}
-
-			if (srcNext->indicators->prepend != NULL) {
-				jm_object_t *ind =
-				    srcNext->indicators->prepend;
-				if (ind->type != jm_type_literal
-				    || strcmp(ind->value, "true") != 0)
-					goto errind;
-				if ((insert =
-				     malloc(sizeof(struct insert_s))) ==
-				    NULL)
-					goto errind;
-				insert->type = jm_insertType_prepend;
-				insert->prependIndex = prependIndex++;
-				insert->indicator = ind;
-				insert->node = srcNext;
-				insert->next = NULL;
-				if (lastInsert == NULL)
-					firstInsert = insert;
-				else
-					lastInsert->next = insert;
-				lastInsert = insert;
-				goto cont;
-			}
-
-			if (srcNext->indicators->insert != NULL) {
-				jm_object_t *ind =
-				    srcNext->indicators->insert;
-				if (ind->type != jm_type_literal)
-					goto errind;
-				if ((insert =
-				     malloc(sizeof(struct insert_s))) ==
-				    NULL)
-					goto errind;
-				insert->type = jm_insertType_insert;
-				insert->indicator = ind;
-				insert->node = srcNext;
-				insert->next = NULL;
-				if (lastInsert == NULL)
-					firstInsert = insert;
-				else
-					lastInsert->next = insert;
-				lastInsert = insert;
-				goto cont;
-			}
-		}
-
-		if (destNext == NULL) {
+			inserter->src = srcNext;
+			inserter->inserter = srcNext->indicators->inserter;
+			inserter->next = NULL;
+		} else if (destNext == NULL) {
 			if (jm_arrayPush(dest, srcNext))
 				goto errmov;
 		} else {
 			if ((ret = merge(destNext, srcNext, globals)))
-				goto cleanup;
-
+				goto err;
 			destNext = destNext->nextSibling;
 		}
-	      cont:
+
 		srcNext = srcNext2;
 	}
 
-	insert = firstInsert;
-	while (insert != NULL) {
-		jm_object_t *ind = insert->indicator, *value = NULL;
-		if (insert->node->type == jm_type_object
-		    && insert->node->indicators->value) {
-			value = insert->node->indicators->value;
-			insert->node->indicators->value = NULL;
-		} else {
-			value = insert->node;
+	if (finserter) {
+		int pindex = 0;	/* Prepend index */
+		jm_object_t *val = NULL;
+		inserter = finserter;
+		while (inserter) {
+			/* Map @value */
+			val = inserter->src;
+			if (val->type == jm_type_object
+			    && val->indicators->value) {
+				val = val->indicators->value;
+				inserter->src->indicators->value = NULL;
+			}
+
+			switch (inserter->inserter->type) {
+			case jm_type_lappend:
+				jm_arrayPush(dest, val);
+				break;
+			case jm_type_lprepend:
+				jm_arrayInsertAt(dest, pindex++, val);
+				break;
+			case jm_type_linsert:
+				jm_arrayInsertAt(dest,
+						 atoi(inserter->inserter->
+						      value), val);
+				break;
+			default:
+				goto err;
+				break;
+			}
+			finserter = inserter->next;
+			free(inserter);
+			inserter = finserter;
 		}
-		switch (insert->type) {
-		case jm_insertType_append:
-			if (jm_arrayPush(dest, value))
-				goto errmov;
-			break;
-		case jm_insertType_prepend:
-			if (jm_arrayInsertAt
-			    (dest, insert->prependIndex, value))
-				goto errmov;
-			break;
-		case jm_insertType_insert:
-			if (jm_arrayInsertAt
-			    (dest, atoi(ind->value), value))
-				goto errmov;
-			break;
-		}
-		insert = insert->next;
 	}
 
-	ret = 0;
-	goto cleanup;
+	return 0;
 
-      errind:
-	fprintf(stderr, "%s: Error in ARRAY indicator\n", PROGRAM_NAME);
-	ret = 1;
-	goto cleanup;
       errmov:
 	fprintf(stderr, "%s: Error pushing ARRAY\n", PROGRAM_NAME);
-	ret = 1;
-	goto cleanup;
-      cleanup:
-	insert = firstInsert;
-	while (insert != NULL) {
-		lastInsert = insert->next;
-		free(insert);
-		insert = lastInsert;
+      err:
+	if (finserter) {
+		inserter = finserter;
+		while (inserter) {
+			finserter = inserter->next;
+			free(inserter);
+			inserter = finserter;
+		}
 	}
 
-	return ret;
+	return 1;
 }
+
 
 static int mergeObject(jm_object_t * dest, jm_object_t * src,
 		       struct jm_globals_s *globals)
 {
-	jm_object_t *tmpnode = NULL;
-	int ret = 0;
+	int ret, didself = 0;	/* It's possible to delete and override the dest node,
+				   in that case execution should stop just after
+				   processing matchers */
+	jm_object_t *matchers = NULL, *next = NULL, *tmpnode = NULL;
+	matchers = src->indicators->matchers;
+	if (matchers != NULL) {
+		next = matchers->firstChild;
+		while (next) {
+			switch (next->type) {
+			case jm_type_lmatch:
+				/* An object inside an array queries from the array */
+				if (dest->parent == NULL
+				    || dest->parent->type ==
+				    jm_type_object)
+					tmpnode = dest;
+				else
+					tmpnode = dest->parent;
 
-	/* Check indicators */
-	if (src->indicators->match != NULL) {
-		jm_object_t *match = src->indicators->match, *tmp = NULL;
-
-		/* TODO: dest could be null, we should really send parent */
-		/* An object inside an array queries from the array */
-		if (dest->parent == NULL
-		    || dest->parent->type == jm_type_object)
-			tmp = dest;
-		else
-			tmp = dest->parent;
-
-		if ((dest = jm_query(tmp, match->value, globals)) == NULL)
-			return 1;
-	}
-
-	if (src->indicators->move != NULL) {
-		jm_object_t *move = src->indicators->move;
-
-		switch (move->type) {
-		case jm_type_literal:
-			/* Move object to index */
-			/* TODO: dest could be null, we should really send parent */
-			return jm_arrayInsertAt(dest->parent,
-						atoi(move->value), dest);
-			break;
-		default:
-			goto errind;
-			break;
-		}
-	}
-
-	if (src->indicators->delete != NULL) {
-		jm_object_t *delete = src->indicators->delete, *next =
-		    NULL;
-
-		switch (delete->type) {
-		case jm_type_literal:
-			/* Delete dest property */
-			if (strcmp(delete->value, "true") == 0) {
-				jm_free(dest);
-				return 0;
+				if ((dest =
+				     jm_query(tmpnode, next->value,
+					      globals)) == NULL)
+					return 1;
+				if (src->indicators->move)
+					return
+					    jm_arrayInsertAt(dest->parent,
+							     atoi
+							     (next->value),
+							     dest);
+				break;
+			case jm_type_ldelete:
+				if ((tmpnode =
+				     jm_query(dest, next->value,
+					      globals)) == NULL)
+					return 1;
+				if (dest == tmpnode)
+					didself = 1;
+				jm_free(tmpnode);
+				break;
+			case jm_type_loverride:
+				if ((tmpnode =
+				     jm_query(dest, next->value,
+					      globals)) == NULL)
+					return 1;
+				if (tmpnode == dest) {
+					jm_moveOver(dest, src);
+					didself = 1;
+				} else {
+					jm_free(tmpnode);
+				}
+				break;
+			default:
+				return 1;	/* This should never happen */
 				break;
 			}
-		case jm_type_string:
-			/* Delete property in string */
-			if ((tmpnode =
-			     jm_query(dest, delete->value,
-				      globals)) == NULL)
-				return 1;
-			jm_free(tmpnode);
-		case jm_type_array:
-			/* Delete properties listed in array */
-			next = delete->firstChild;
-			while (next != NULL) {
-				if (next->type != jm_type_string)
-					goto errind;
-
-				if ((tmpnode =
-				     jm_query(dest, next->value,
-					      globals)) == NULL)
-					return 1;
-				jm_free(tmpnode);
-				next = next->nextSibling;
-			}
-			break;
-		default:
-			goto errind;
-			break;
+			next = next->nextSibling;
 		}
 	}
 
-	if (src->indicators->override != NULL) {
-		jm_object_t *override = src->indicators->override, *next =
-		    NULL;
-		switch (override->type) {
-		case jm_type_literal:
-			/* Move over dest property */
-			if (strcmp(override->value, "true") == 0) {
-				if (jm_moveOver(dest, src))
-					goto errmov;
-				return 0;
-			}
-			break;
-		case jm_type_string:
-			/* Delete property in string */
-			if ((tmpnode =
-			     jm_query(dest, override->value,
-				      globals)) == NULL)
-				return 1;
-			jm_free(tmpnode);
-		case jm_type_array:
-			/* Override properties listed in array.
-			 * Just delete all mentioned properties, that should do
-			 */
-			next = override->firstChild;
-			while (next != NULL) {
-				if (next->type != jm_type_string)
-					goto errind;
-
-				if ((tmpnode =
-				     jm_query(dest, next->value,
-					      globals)) == NULL)
-					return 1;
-				jm_free(tmpnode);
-				next = next->nextSibling;
-			}
-			break;
-		default:
-			goto errind;
-			break;
-		}
-	}
+	if (didself)
+		return 0;
 
 	if (src->indicators->value) {
 		jm_object_t *value = src->indicators->value, *tmp = NULL;
@@ -356,8 +237,11 @@ static int mergeObject(jm_object_t * dest, jm_object_t * src,
 
 	/* Move src over dest */
 	if (dest->type != src->type) {
-		if (jm_moveOver(dest, src))
-			goto errmov;
+		if (jm_moveOver(dest, src)) {
+			fprintf(stderr, "%s: Error moving into OBJECT\n",
+				PROGRAM_NAME);
+			return 1;
+		}
 		return 0;
 	}
 
@@ -379,22 +263,22 @@ static int mergeObject(jm_object_t * dest, jm_object_t * src,
 	}
 
 	return 0;
-
-      errind:
-	fprintf(stderr, "%s: Error in OBJECT indicator\n", PROGRAM_NAME);
-	return 1;
-      errmov:
-	fprintf(stderr, "%s: Error moving into OBJECT\n", PROGRAM_NAME);
-	return 1;
 }
 
 static int merge(jm_object_t * dest, jm_object_t * src,
 		 struct jm_globals_s *globals)
 {
 	switch (src->type) {
-	case jm_type_unknown:
+	case jm_type_lid:
+	case jm_type_lappend:
+	case jm_type_lprepend:
+	case jm_type_linsert:
+	case jm_type_ldelete:
+	case jm_type_loverride:
+	case jm_type_lmatch:
 		fprintf(stderr,
-			"%s: cannot merge UNKNOWN type\n", PROGRAM_NAME);
+			"%s: cannot merge INDICATORS nodes\n",
+			PROGRAM_NAME);
 		return 1;
 		break;
 	case jm_type_object:

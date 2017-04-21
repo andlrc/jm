@@ -1,9 +1,14 @@
 #!/bin/bash
-if [ "$1" = "verbose" ] || [ "$1" == "-v" ]
+if test "$1" = "verbose" || test "$1" = "-v"
 then
 	exec 3>&1
 else
 	exec 3>/dev/null
+fi
+if ! test -x ./json_merger
+then
+	>&2 printf "json_merger not found, please run 'make' and try again\n"
+	exit 1
 fi
 for file in tests/*.json; do
 	[ -e "$file" ] || continue
