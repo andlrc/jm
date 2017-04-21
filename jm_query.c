@@ -199,6 +199,7 @@ static struct jm_qrule_s *parse(char *selector)
 	while (*p->ch != '\0') {
 		if ((rule = malloc(sizeof(struct jm_qrule_s))) == NULL) {
 			jm_freeqr(frule);
+			free(p);
 			return NULL;
 		}
 		if (!frule)
@@ -231,6 +232,7 @@ static struct jm_qrule_s *parse(char *selector)
 
 			if ((buff = malloc(256)) == NULL) {
 				jm_freeqr(frule);
+				free(p);
 				return NULL;
 			}
 			rule->key = buff;
@@ -251,6 +253,7 @@ static struct jm_qrule_s *parse(char *selector)
 				jm_freeqr(frule);
 				p->ch--;	/* For error message */
 				err(p, '\'');
+				free(p);
 				return NULL;
 			}
 
@@ -270,6 +273,7 @@ static struct jm_qrule_s *parse(char *selector)
 				if (*p->ch != '=') {
 					jm_freeqr(frule);
 					err(p, '=');
+					free(p);
 					return NULL;
 				}
 				p->ch++;
@@ -279,6 +283,7 @@ static struct jm_qrule_s *parse(char *selector)
 				if (*p->ch != '=') {
 					jm_freeqr(frule);
 					err(p, '=');
+					free(p);
 					return NULL;
 				}
 				p->ch++;
@@ -288,6 +293,7 @@ static struct jm_qrule_s *parse(char *selector)
 				if (*p->ch != '=') {
 					jm_freeqr(frule);
 					err(p, '=');
+					free(p);
 					return NULL;
 				}
 				p->ch++;
@@ -297,6 +303,7 @@ static struct jm_qrule_s *parse(char *selector)
 				p->ch--;	/* For error message */
 				jm_freeqr(frule);
 				err(p, ']');
+				free(p);
 				return NULL;
 				break;
 			}
@@ -311,6 +318,7 @@ static struct jm_qrule_s *parse(char *selector)
 
 			if ((buff = malloc(256)) == NULL) {
 				jm_freeqr(frule);
+				free(p);
 				return NULL;
 			}
 			rule->value = buff;
@@ -331,12 +339,14 @@ static struct jm_qrule_s *parse(char *selector)
 				jm_freeqr(frule);
 				p->ch--;	/* For error message */
 				err(p, '\'');
+				free(p);
 				return NULL;
 			}
 
 			if (*p->ch != ']') {
 				err(p, ']');
 				jm_freeqr(frule);
+				free(p);
 				return NULL;
 			}
 			p->ch++;
@@ -347,6 +357,7 @@ static struct jm_qrule_s *parse(char *selector)
 			 * [a-zA-Z0-9_] */
 			if ((buff = malloc(256)) == NULL) {
 				jm_freeqr(frule);
+				free(p);
 				return NULL;
 			}
 			rule->value = buff;
@@ -364,6 +375,7 @@ static struct jm_qrule_s *parse(char *selector)
 			/* Directory like query */
 			if ((buff = malloc(256)) == NULL) {
 				jm_freeqr(frule);
+				free(p);
 				return NULL;
 			}
 
@@ -388,6 +400,7 @@ static struct jm_qrule_s *parse(char *selector)
 
 	}
 
+	free(p);
 	return frule;
 }
 
