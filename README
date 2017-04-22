@@ -8,16 +8,16 @@ SYNOPSIS
 
 DESCRIPTION
        json_merger  is  a  way to merge JSON files based on indicators such as
-       @extends, @match, @override and @delete.
+       @extends, @match, @override and @delete.  Only works for a ROOT NODE
 
        -p, --pretty
            Prettify, indent the output JSON in a human way.
 
-       -s, --suffix
+       -s, --suffix <.suffix>
            Output suffix. Suffix added to  input  files  to  construct  output
            files.  If left blank then stdout is used.
 
-       -v, --variable
+       -v, --variable <key=value>
            Set key=value variables. See PATH TEMPLATING.
 
        -h, --help
@@ -243,6 +243,10 @@ EXAMPLES
                  "@match": "#a",
                  "@delete": true
                }
+
+ROOT NODE
+       A root node is the outer most node in a JSON file.  These  can  contain
+       @extends, but cannot be deleted nor overridden.
 
 EXIT STATUS
        The following exit values shall be returned:

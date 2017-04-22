@@ -7,16 +7,17 @@ json_merger [OPTION]... [file]...
 
 .SH "DESCRIPTION"
 json_merger is a way to merge JSON files based on indicators such as
-\fB@extends\fR, \fB@match\fR, \fB@override\fR and \fB@delete\fR.
+\fB@extends\fR, \fB@match\fR, \fB@override\fR and \fB@delete\fR.  Only works for
+a \fBROOT NODE\fR
 
 .IP "\fB-p\fR, \fB--pretty\fR" 4
 Prettify, indent the output JSON in a human way.
 
-.IP "\fB-s\fR, \fB--suffix\fR" 4
+.IP "\fB-s\fR, \fB--suffix\fR <\fI.suffix\fR>" 4
 Output suffix. Suffix added to input files to construct output files.  If left
 blank then \fBstdout\fR is used.
 
-.IP "\fB-v\fR, \fB--variable\fR" 4
+.IP "\fB-v\fR, \fB--variable\fR <\fIkey=value\fR>" 4
 Set \fBkey=value\fR variables. See \fBPATH TEMPLATING\fB.
 
 .IP "\fB-h\fR, \fB--help\fR" 4
@@ -302,6 +303,9 @@ One can match and delete the \fBa\fR with:
 .br
 \&    }
 
+.SH "ROOT NODE"
+A root node is the outer most node in a JSON file. These can contain
+\fB@extends\fR, but \fIcannot\fR be deleted nor overridden.
 
 .SH "EXIT STATUS"
 The following exit values shall be returned:
