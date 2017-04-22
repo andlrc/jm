@@ -598,14 +598,14 @@ static char *slurpFile(FILE * fh)
 {
 	long buffsize = 0;
 	char *buff = NULL;
+	size_t len = 0;
 
 	fseek(fh, 0, SEEK_END);
 	buffsize = ftell(fh);
 	buff = malloc(buffsize + 1);
 	fseek(fh, 0, SEEK_SET);
-	fread(buff, 1, buffsize, fh);
-
-	buff[buffsize] = '\0';
+	len = fread(buff, 1, buffsize, fh);
+	buff[len] = '\0';
 
 	return buff;
 }
