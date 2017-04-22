@@ -586,8 +586,7 @@ jm_object_t *jm_parse(char *source)
 			return NULL;
 		}
 		result->ids = p->ids;	/* Used my jm_merge... */
-	}
-	else {
+	} else {
 		jm_free(p->ids);
 	}
 
@@ -595,7 +594,7 @@ jm_object_t *jm_parse(char *source)
 	return result;
 }
 
-static char *slurpFile(FILE *fh)
+static char *slurpFile(FILE * fh)
 {
 	long buffsize = 0;
 	char *buff = NULL;
