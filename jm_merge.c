@@ -194,6 +194,12 @@ static int mergeObject(jm_object_t * dest, jm_object_t * src,
 					return 1;
 				if (dest == tmpnode)
 					didself = 1;
+				if (!tmpnode->parent) {
+					fprintf(stderr,
+						"%s: cannot delete a ROOT node\n",
+						PROGRAM_NAME);
+					return 1;
+				}
 				jm_free(tmpnode);
 				break;
 			case jm_type_loverride:
@@ -201,6 +207,12 @@ static int mergeObject(jm_object_t * dest, jm_object_t * src,
 				     jm_query(dest, next->value,
 					      ids)) == NULL)
 					return 1;
+				if (!tmpnode->parent) {
+					fprintf(stderr,
+						"%s: cannot override a ROOT node\n",
+						PROGRAM_NAME);
+					return 1;
+				}
 				if (tmpnode == dest) {
 					jm_moveOver(dest, src);
 					didself = 1;
