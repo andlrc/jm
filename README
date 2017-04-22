@@ -10,6 +10,7 @@ DESCRIPTION
        json_merger  is  a  way to merge JSON files based on indicators such as
        @extends, @match, @override and @delete.  Only works for a ROOT NODE
 
+OPTIONS
        -p, --pretty
            Prettify, indent the output JSON in a human way.
 
@@ -18,7 +19,7 @@ DESCRIPTION
            files.  If left blank then stdout is used.
 
        -v, --variable <key=value>
-           Set key=value variables. See PATH TEMPLATING.
+           Set key=value variables. See "PATH TEMPLATING".
 
        -h, --help
            Show help and exit.
@@ -26,13 +27,20 @@ DESCRIPTION
        -V, --version
            Print version information.
 
+EXIT STATUS
+       The following exit values shall be returned:
+
+       0   Successful completion.
+
+       >0  An error occurred.
+
 INDICATORS
        @extends
            An array or string of path names to files which should be extended.
 
        @override
            An array, string or true indicating that the given property will be
-           overridden.  MATCH SYNTAX is supported.  See @delete
+           overridden.  MATCH SYNTAX is supported.  See "@delete"
 
        @delete
            An array, string or true indicating that the given property will be
@@ -69,7 +77,7 @@ INDICATORS
 
        @value
            Used  together  with  the @insert family of indicators, to insert a
-           primitive value at a specific location.  See EXAMPLES for an  exam-
+           primitive value at a specific location.  See "EXAMPLE" for an exam-
            ple.
 
        @comment
@@ -107,13 +115,13 @@ MATCH SYNTAX
            The list of @SPECIAL are:
 
            @value use to match primitives in arrays.
-           @id use to match specified ID's.  See INDICATORS.
+           @id use to match specified ID's.  See "INDICATORS".
 
        ID  Match an ID specified with @id.  The syntax is:
 
                #id
 
-           See INDICATORS.
+           See "INDICATORS".
 
        Directory
            Match a property name and ascend into that matches node, the syntax
@@ -121,7 +129,7 @@ MATCH SYNTAX
 
                name/
 
-EXAMPLES
+EXAMPLE
        @extends
            To extend the files c.json and then b.json one could write:
 
@@ -248,11 +256,7 @@ ROOT NODE
        A root node is the outer most node in a JSON file.  These  can  contain
        @extends, but cannot be deleted nor overridden.
 
-EXIT STATUS
-       The following exit values shall be returned:
-
-       0   Successful completion.
-
-       >0  An error occurred.
+AUTHOR
+       Andreas Louv <andreas@louv.dk> is the author of json_merger.
 
                                                                 json_merger(1)

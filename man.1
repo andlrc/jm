@@ -10,6 +10,8 @@ json_merger is a way to merge JSON files based on indicators such as
 \fB@extends\fR, \fB@match\fR, \fB@override\fR and \fB@delete\fR.  Only works for
 a \fBROOT NODE\fR
 
+.SH "OPTIONS"
+
 .IP "\fB-p\fR, \fB--pretty\fR" 4
 Prettify, indent the output JSON in a human way.
 
@@ -18,7 +20,7 @@ Output suffix. Suffix added to input files to construct output files.  If left
 blank then \fBstdout\fR is used.
 
 .IP "\fB-v\fR, \fB--variable\fR <\fIkey=value\fR>" 4
-Set \fBkey=value\fR variables. See \fBPATH TEMPLATING\fB.
+Set \fBkey=value\fR variables. See "PATH TEMPLATING".
 
 .IP "\fB-h\fR, \fB--help\fR" 4
 Show help and exit.
@@ -26,13 +28,22 @@ Show help and exit.
 .IP "\fB-V\fR, \fB--version\fR" 4
 Print version information.
 
+.SH "EXIT STATUS"
+The following exit values shall be returned:
+
+.IP "\fB0\fR" 4
+Successful completion.
+
+.IP "\fB>0\fR" 4
+An error occurred.
+
 .SH "INDICATORS"
 .IP "\fB@extends\fR" 4
 An array or string of path names to files which should be extended.
 
 .IP "\fB@override\fR" 4
 An array, string or \fBtrue\fR indicating that the given property will be
-overridden.  \fBMATCH SYNTAX\fR is supported.  See \fB@delete\fR
+overridden.  \fBMATCH SYNTAX\fR is supported.  See "@delete"
 
 .IP "\fB@delete\fR" 4
 An array, string or \fBtrue\fR indicating that the given property will be
@@ -69,7 +80,7 @@ This indicator is the same as \fB@insert\fR, but is used together with
 
 .IP "\fB@value\fR" 4
 Used together with the \fB@insert\fR family of indicators, to insert a primitive
-value at a specific location.  See EXAMPLES for an example.
+value at a specific location.  See "EXAMPLE" for an example.
 
 .IP "\fB@comment\fR" 4
 These will be removed in the final output file, and is intended to be used for
@@ -117,21 +128,21 @@ The list of \fB@SPECIAL\fR are:
 
 \fB@value\fR use to match primitives in arrays.
 .br
-\fB@id\fR use to match specified ID's.  See \fBINDICATORS\fR.
+\fB@id\fR use to match specified ID's.  See "INDICATORS".
 
 .IP "\fBID\fR" 4
 Match an ID specified with \fB@id\fR.  The syntax is:
 
 \&    #id
 
-See \fBINDICATORS\fR.
+See "INDICATORS".
 
 .IP "\fBDirectory\fR" 4
 Match a property name and ascend into that matches node, the syntax is:
 
 \&    name/
 
-.SH "EXAMPLES"
+.SH "EXAMPLE"
 .IP "\fB@extends\fR" 4
 To extend the files \fBc.json\fR and then \fBb.json\fR one could write:
 
@@ -307,11 +318,6 @@ One can match and delete the \fBa\fR with:
 A root node is the outer most node in a JSON file. These can contain
 \fB@extends\fR, but \fIcannot\fR be deleted nor overridden.
 
-.SH "EXIT STATUS"
-The following exit values shall be returned:
+.SH "AUTHOR"
 
-.IP "\fB0\fR" 4
-Successful completion.
-
-.IP "\fB>0\fR" 4
-An error occurred.
+Andreas Louv <andreas@louv.dk> is the author of \fBjson_merger\fR.

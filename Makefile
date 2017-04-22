@@ -42,7 +42,7 @@ README:	man.1
 
 # Install
 
-install:	$(PRGNAME) man.1
+install:
 	cp $(PRGNAME) $(PRGDIR)/$(PRGNAME)
 	cp man.1 $(MANDIR)/$(PRGNAME).1
 
