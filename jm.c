@@ -18,7 +18,9 @@ jm_object_t *jm_newNode(enum jm_type_e type)
 	node->lastChild = NULL;
 	node->nextSibling = NULL;
 	node->parent = NULL;
+
 	node->filename = NULL;
+	node->ids = NULL;
 
 	return node;
 }
@@ -32,7 +34,7 @@ jm_object_t *jm_newObject(void)
 		return NULL;
 
 	if ((indicators = malloc(sizeof(struct jm_indicators_s))) == NULL) {
-		free(node);
+		jm_free(node);
 		return NULL;
 	}
 
@@ -301,7 +303,7 @@ int jm_moveIntoId(jm_object_t * ids, char *id, jm_object_t * node)
 		return 1;
 
 	if ((wrpinner = jm_newNode(jm_type_lid)) == NULL) {
-		free(wrp);
+		jm_free(wrp);
 		return 1;
 	}
 
@@ -386,6 +388,8 @@ static void jm_free_(jm_object_t * node)
 
 	if (node->filename)
 		free(node->filename);
+	if (node->ids)
+		jm_free(node->ids);
 
 	free(node);
 }

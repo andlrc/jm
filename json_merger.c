@@ -38,18 +38,12 @@ char short_options[] = "ps:v:hV";
 
 int main(int argc, char **argv)
 {
-	struct jm_globals_s *globals = NULL;
 	char *suffix = NULL, *tmpbuf, *varkey, *infile;
 	size_t suflen = 0;
 	int ch, argind, pretty = 0;
+	jm_object_t *vars = NULL;
 
-	if ((globals = malloc(sizeof(struct jm_globals_s))) == NULL)
-		goto err;
-
-	globals->vars = NULL;
-	globals->ids = NULL;
-
-	if ((globals->vars = jm_newObject()) == NULL)
+	if ((vars = jm_newObject()) == NULL)
 		goto err;
 
 	while ((ch =
@@ -78,8 +72,7 @@ int main(int argc, char **argv)
 				tmpbuf++;
 			}
 			*tmpbuf++ = '\0';
-			jm_moveInto(globals->vars, varkey,
-				    jm_newString(tmpbuf));
+			jm_moveInto(vars, varkey, jm_newString(tmpbuf));
 			free(varkey);
 			break;
 		default:
@@ -95,20 +88,14 @@ int main(int argc, char **argv)
 	do {
 		jm_object_t *root = NULL, *out = NULL;
 
-		if (globals->ids)
-			jm_free(globals->ids);
-
-		if ((globals->ids = jm_newObject()) == NULL)
-			goto err;
-
 		if (argind < argc)
 			infile = argv[argind];
 
-		if ((root = jm_parseFile(infile, globals)) == NULL)
+		if ((root = jm_parseFile(infile)) == NULL)
 			goto err;
 
 
-		if (!(out = jm_merge(root, globals))) {
+		if (!(out = jm_merge(root, vars))) {
 			jm_free(root);
 			goto err;
 		}
@@ -130,14 +117,10 @@ int main(int argc, char **argv)
 		jm_free(out);
 	} while (++argind < argc);
 
-	jm_free(globals->vars);
-	jm_free(globals->ids);
-	free(globals);
+	jm_free(vars);
 	exit(EXIT_SUCCESS);
 
       err:
-	jm_free(globals->vars);
-	jm_free(globals->ids);
-	free(globals);
+	jm_free(vars);
 	exit(EXIT_FAILURE);
 }

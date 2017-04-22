@@ -8,10 +8,8 @@
 
 #define MAX_FILES 16
 
-static int merge(jm_object_t * dest, jm_object_t * src,
-		 struct jm_globals_s *globals);
-static jm_object_t *recurseMerge(jm_object_t * node,
-				 struct jm_globals_s *globals);
+static int merge(jm_object_t * dest, jm_object_t * src, jm_object_t * ids);
+static jm_object_t *recurseMerge(jm_object_t * node, jm_object_t * vars);
 
 static int template(char *dest, char *src, jm_object_t * vars)
 {
@@ -53,7 +51,7 @@ static int template(char *dest, char *src, jm_object_t * vars)
 }
 
 static int mergeArray(jm_object_t * dest, jm_object_t * src,
-		      struct jm_globals_s *globals)
+		      jm_object_t * ids)
 {
 	/* Iterate array and call recursive */
 	int ret = 0;
@@ -96,7 +94,7 @@ static int mergeArray(jm_object_t * dest, jm_object_t * src,
 			if (jm_arrayPush(dest, srcNext))
 				goto errmov;
 		} else {
-			if ((ret = merge(destNext, srcNext, globals)))
+			if ((ret = merge(destNext, srcNext, ids)))
 				goto err;
 			destNext = destNext->nextSibling;
 		}
@@ -158,7 +156,7 @@ static int mergeArray(jm_object_t * dest, jm_object_t * src,
 
 
 static int mergeObject(jm_object_t * dest, jm_object_t * src,
-		       struct jm_globals_s *globals)
+		       jm_object_t * ids)
 {
 	int ret, didself = 0;	/* It's possible to delete and override the dest node,
 				   in that case execution should stop just after
@@ -180,7 +178,7 @@ static int mergeObject(jm_object_t * dest, jm_object_t * src,
 
 				if ((dest =
 				     jm_query(tmpnode, next->value,
-					      globals)) == NULL)
+					      ids)) == NULL)
 					return 1;
 				if (src->indicators->move)
 					return
@@ -192,7 +190,7 @@ static int mergeObject(jm_object_t * dest, jm_object_t * src,
 			case jm_type_ldelete:
 				if ((tmpnode =
 				     jm_query(dest, next->value,
-					      globals)) == NULL)
+					      ids)) == NULL)
 					return 1;
 				if (dest == tmpnode)
 					didself = 1;
@@ -201,7 +199,7 @@ static int mergeObject(jm_object_t * dest, jm_object_t * src,
 			case jm_type_loverride:
 				if ((tmpnode =
 				     jm_query(dest, next->value,
-					      globals)) == NULL)
+					      ids)) == NULL)
 					return 1;
 				if (tmpnode == dest) {
 					jm_moveOver(dest, src);
@@ -230,7 +228,7 @@ static int mergeObject(jm_object_t * dest, jm_object_t * src,
 		if (src->parent)
 			jm_free(src);
 		src = tmp;
-		ret = merge(dest, src, globals);
+		ret = merge(dest, src, ids);
 		jm_free(src);
 		return ret;
 	}
@@ -256,7 +254,7 @@ static int mergeObject(jm_object_t * dest, jm_object_t * src,
 
 		if ((destNext = jm_locate(dest, srcNext->name)) == NULL)
 			jm_moveInto(dest, srcNext->name, srcNext);
-		else if ((ret = merge(destNext, srcNext, globals)))
+		else if ((ret = merge(destNext, srcNext, ids)))
 			return ret;
 
 		srcNext = srcNext2;
@@ -265,8 +263,7 @@ static int mergeObject(jm_object_t * dest, jm_object_t * src,
 	return 0;
 }
 
-static int merge(jm_object_t * dest, jm_object_t * src,
-		 struct jm_globals_s *globals)
+static int merge(jm_object_t * dest, jm_object_t * src, jm_object_t * ids)
 {
 	switch (src->type) {
 	case jm_type_lid:
@@ -282,10 +279,10 @@ static int merge(jm_object_t * dest, jm_object_t * src,
 		return 1;
 		break;
 	case jm_type_object:
-		return mergeObject(dest, src, globals);
+		return mergeObject(dest, src, ids);
 		break;
 	case jm_type_array:
-		return mergeArray(dest, src, globals);
+		return mergeArray(dest, src, ids);
 		break;
 	case jm_type_string:	/* Copy string over */
 		jm_moveOver(dest, src);
@@ -299,7 +296,7 @@ static int merge(jm_object_t * dest, jm_object_t * src,
 }
 
 static jm_object_t *initMerge(jm_object_t * node, char *path,
-			      struct jm_globals_s *globals)
+			      jm_object_t * vars)
 {
 	jm_object_t *tmp = NULL, *src = NULL;
 	char olddir[PATH_MAX], filename[PATH_MAX], *dir = NULL;
@@ -315,12 +312,12 @@ static jm_object_t *initMerge(jm_object_t * node, char *path,
 	}
 	free(dir);
 
-	template(filename, path, globals->vars);
-	if ((tmp = jm_parseFile(filename, globals)) == NULL) {
+	template(filename, path, vars);
+	if ((tmp = jm_parseFile(filename)) == NULL) {
 		return NULL;
 	}
 
-	if ((src = recurseMerge(tmp, globals)) == NULL) {
+	if ((src = recurseMerge(tmp, vars)) == NULL) {
 		jm_free(tmp);
 		return NULL;
 	}
@@ -334,8 +331,7 @@ static jm_object_t *initMerge(jm_object_t * node, char *path,
 	return src;
 }
 
-static jm_object_t *recurseMerge(jm_object_t * node,
-				 struct jm_globals_s *globals)
+static jm_object_t *recurseMerge(jm_object_t * node, jm_object_t * vars)
 {
 	jm_object_t *dest = NULL;
 
@@ -344,9 +340,8 @@ static jm_object_t *recurseMerge(jm_object_t * node,
 		extends = node->indicators->extends;
 		switch (extends->type) {
 		case jm_type_string:
-			if ((dest =
-			     initMerge(node, extends->value,
-				       globals)) == NULL) {
+			if ((dest = initMerge(node, extends->value,
+					      vars)) == NULL) {
 				return NULL;
 			}
 			break;
@@ -355,14 +350,18 @@ static jm_object_t *recurseMerge(jm_object_t * node,
 			while (next != NULL) {
 				if ((src =
 				     initMerge(node, next->value,
-					       globals)) == NULL) {
+					       vars)) == NULL) {
 					jm_free(dest);
 					return NULL;
 				}
 				if (!dest) {
 					dest = src;
 				} else {
-					merge(dest, src, globals);
+					merge(dest, src, dest->ids);
+					/* Move over new ID's */
+					jm_free(dest->ids);
+					dest->ids = src->ids;
+					src->ids = NULL;
 					jm_free(src);
 				}
 
@@ -379,16 +378,21 @@ static jm_object_t *recurseMerge(jm_object_t * node,
 		dest = node->type == jm_type_array ? jm_newArray()
 		    : jm_newObject();
 
-	if (merge(dest, node, globals)) {
+	if (merge(dest, node, dest->ids)) {
 		jm_free(dest);
 		return NULL;
 	}
+	/* Move over new ID's */
+	if (dest->ids)
+		jm_free(dest->ids);
+	dest->ids = node->ids;
+	node->ids = NULL;
 
 	return dest;
 }
 
 /* Caller should never free dest, but free the return value */
-jm_object_t *jm_merge(jm_object_t * dest, struct jm_globals_s * globals)
+jm_object_t *jm_merge(jm_object_t * dest, jm_object_t * vars)
 {
-	return recurseMerge(dest, globals);
+	return recurseMerge(dest, vars);
 }

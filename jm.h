@@ -28,8 +28,6 @@ enum jm_type_e {
 /* Indicators set on objects */
 struct jm_indicators_s {
 	jm_object_t *extends;	/* Array */
-	/* Used for arrays */
-	/* Works the same as @insert, but used with @match */
 	jm_object_t *move;	/* Number */
 	jm_object_t *value;	/* Anything */
 	jm_object_t *inserter;	/* @append, @prepend, @insert */
@@ -41,16 +39,13 @@ struct jm_object_s {
 	char *name;		/* Name when stored in object */
 	struct jm_indicators_s *indicators;	/* @indicator values */
 	char *value;		/* Primitive value */
-	char *filename;		/* File path */
 	jm_object_t *firstChild;
 	jm_object_t *lastChild;
 	jm_object_t *nextSibling;
 	jm_object_t *parent;
-};
-
-struct jm_globals_s {
-	jm_object_t *vars;
-	jm_object_t *ids;
+	/* Root note (root = jm_parse(...)) properties */
+	char *filename;		/* File path */
+	jm_object_t *ids;	/* Contains ID's from parsed JSON */
 };
 
 /* Functions */
@@ -61,7 +56,7 @@ jm_object_t *jm_newString(char *buff);
 jm_object_t *jm_newLiteral(char *buff);
 jm_object_t *jm_locate(jm_object_t * node, char *key);
 jm_object_t *jm_query(jm_object_t * node, char *selector,
-		      struct jm_globals_s *globals);
+		      jm_object_t * ids);
 
 int jm_moveIntoId(jm_object_t * ids, char *id, jm_object_t * node);
 jm_object_t *jm_locateId(jm_object_t * ids, char *id);
@@ -73,10 +68,10 @@ int jm_arrayInsertAt(jm_object_t * node, int index, jm_object_t * child);
 
 int jm_detach(jm_object_t * node);
 void jm_free(jm_object_t * node);
-jm_object_t *jm_parseFile(char *file, struct jm_globals_s *globals);
+jm_object_t *jm_parseFile(char *file);
 
-jm_object_t *jm_parse(char *source, struct jm_globals_s *globals);
+jm_object_t *jm_parse(char *source);
 int jm_serialize(char *outfh, jm_object_t * node, int flags);
-jm_object_t *jm_merge(jm_object_t * dest, struct jm_globals_s *globals);
+jm_object_t *jm_merge(jm_object_t * dest, jm_object_t * vars);
 
 #endif

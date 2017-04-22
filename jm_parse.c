@@ -9,7 +9,7 @@ struct jm_parser {
 	char *ch;		/* The current character */
 	size_t lineno;		/* Contains numbers of lines */
 	size_t llineno;		/* Contains offset for where last lineno is */
-	struct jm_globals_s *globals;	/* Contains storage for ID's */
+	jm_object_t *ids;	/* Contains storage for ID's */
 };
 
 enum jm_indicators_e {
@@ -292,7 +292,7 @@ static jm_object_t *object(struct jm_parser *p)
 				free(key);
 				return NULL;
 			}
-			jm_moveIntoId(p->globals->ids, val->value, object);
+			jm_moveIntoId(p->ids, val->value, object);
 			jm_free(val);
 			break;
 		case jm_indicator_comment:
@@ -564,7 +564,7 @@ static jm_object_t *value(struct jm_parser *p)
 	return node;
 }
 
-jm_object_t *jm_parse(char *source, struct jm_globals_s * globals)
+jm_object_t *jm_parse(char *source)
 {
 	jm_object_t *result;
 	struct jm_parser *p = NULL;
@@ -575,7 +575,7 @@ jm_object_t *jm_parse(char *source, struct jm_globals_s * globals)
 	p->llineno = 0;
 	p->ch = source;
 	p->source = source;
-	p->globals = globals;
+	p->ids = jm_newObject();
 	result = value(p);
 	white(p);
 	if (result && *p->ch != '\0') {
@@ -585,15 +585,14 @@ jm_object_t *jm_parse(char *source, struct jm_globals_s * globals)
 		return NULL;
 	}
 
+	result->ids = p->ids;	/* Used my jm_merge... */
 	free(p);
 	return result;
 }
 
-jm_object_t *jm_parseFile(char *file, struct jm_globals_s * globals)
+jm_object_t *jm_parseFile(char *file)
 {
-	FILE *fh = strcmp(file,
-			  "-") == 0 ? stdin : fopen(file,
-						    "rb");
+	FILE *fh = strcmp(file, "-") == 0 ? stdin : fopen(file, "rb");
 	char *buff = NULL, *source = NULL;
 	size_t buff_size = 256;
 	int ch;
@@ -619,7 +618,7 @@ jm_object_t *jm_parseFile(char *file, struct jm_globals_s * globals)
 	}
 
 	*buff = '\0';
-	if ((node = jm_parse(source, globals)) == NULL)
+	if ((node = jm_parse(source)) == NULL)
 		goto err;
 	free(source);
 	if (fh != stdin)

@@ -46,7 +46,7 @@ static void err(struct jm_parser_s *p, char ex)
 }
 
 static jm_object_t *query(jm_object_t * node, struct jm_qrule_s *rule,
-			  struct jm_globals_s *globals)
+			  jm_object_t * ids)
 {
 	size_t rlen, nlen;
 	char *val;
@@ -59,7 +59,7 @@ static jm_object_t *query(jm_object_t * node, struct jm_qrule_s *rule,
 		next = node->firstChild;
 
 		while (next != NULL) {
-			if ((node = query(next, rule, globals)) != NULL)
+			if ((node = query(next, rule, ids)) != NULL)
 				return node;
 			next = next->nextSibling;
 		}
@@ -146,11 +146,11 @@ static jm_object_t *query(jm_object_t * node, struct jm_qrule_s *rule,
 			break;
 		case rule_type_id:
 			if ((childNode =
-			     jm_locate(globals->ids, rule->value)) == NULL)
+			     jm_locate(ids, rule->value)) == NULL)
 				return NULL;
 			if ((node =
 			     query(childNode->firstChild->firstChild,
-				   rule->next, globals)))
+				   rule->next, ids)))
 				return node;
 			return NULL;
 			break;
@@ -161,7 +161,7 @@ static jm_object_t *query(jm_object_t * node, struct jm_qrule_s *rule,
 				childNode = node->parent;
 			else
 				childNode = jm_locate(node, rule->key);
-			if ((node = query(childNode, rule->next, globals)))
+			if ((node = query(childNode, rule->next, ids)))
 				return node;
 			return NULL;
 		}
@@ -405,7 +405,7 @@ static struct jm_qrule_s *parse(char *selector)
 }
 
 jm_object_t *jm_query(jm_object_t * node, char *selector,
-		      struct jm_globals_s * globals)
+		      jm_object_t * ids)
 {
 	struct jm_qrule_s *rule = NULL;
 	jm_object_t *match;
@@ -416,7 +416,7 @@ jm_object_t *jm_query(jm_object_t * node, char *selector,
 	if ((rule = parse(selector)) == NULL)
 		return NULL;
 
-	if ((match = query(node, rule, globals)) == NULL) {
+	if ((match = query(node, rule, ids)) == NULL) {
 		fprintf(stderr, "%s: selector '%s' disn't match\n",
 			PROGRAM_NAME, selector);
 		jm_freeqr(rule);
