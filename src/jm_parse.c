@@ -442,8 +442,7 @@ static char *number(struct jm_parser
 	return retbuff;
 }
 
-static char *literal(struct jm_parser
-		     *p)
+static char *literal(struct jm_parser *p)
 {
 
 /* Code buffer */
@@ -453,8 +452,7 @@ static char *literal(struct jm_parser
 		int cur;
 		int sqr;
 		int par;
-	} brackets = {
-	0};
+	} brackets = { 0, 0, 0 };
 	white(p);
 	if (strncmp(p->ch, "true", 4) == 0) {
 		p->ch += 4;
@@ -475,10 +473,8 @@ static char *literal(struct jm_parser
 		return NULL;
 	retbuff = buff;
 	while (*p->ch != '\0') {
-
-/* Slurp everything until a closing {curly, square} bracket
-
- * or comma. Also count pairs of opening and closing brackets */
+		/* Slurp everything until a closing {curly, square} bracket
+		 * or comma. Also count pairs of opening and closing brackets */
 		if (!brackets.cur && !brackets.sqr && !brackets.par) {
 			if (*p->ch == '}' || *p->ch == ']'
 			    || *p->ch == ',') {
