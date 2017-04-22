@@ -263,7 +263,7 @@ static jm_object_t *object(struct jm_parser *p)
 				free(key);
 				return NULL;
 			}
-			/* Should not free val */
+			jm_free(val);
 			break;
 		case jm_indicator_move:	/* TODO: Can this be merged with @insert */
 			object->indicators->move = val;
