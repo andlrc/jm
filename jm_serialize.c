@@ -24,9 +24,9 @@ static char *indent(int depth)
 static char *escape(char *string)
 {
 	char *buff = NULL, *retbuff = NULL;
-	size_t buff_size = 256;
+	size_t buffsize = 256;
 
-	if ((buff = malloc(buff_size)) == NULL)
+	if ((buff = malloc(buffsize)) == NULL)
 		return NULL;
 
 	retbuff = buff;
@@ -37,10 +37,10 @@ static char *escape(char *string)
 		*buff++ = *string++;
 
 		/* At most two bytes are written at once */
-		if (buff_size - 1 <= (size_t) (buff - retbuff)) {
+		if (buffsize - 1 <= (size_t) (buff - retbuff)) {
 			char *temp;
-			buff_size *= 2;
-			if ((temp = realloc(retbuff, buff_size)) == NULL)
+			buffsize *= 2;
+			if ((temp = realloc(retbuff, buffsize)) == NULL)
 				goto err;
 			buff = temp + (buff - retbuff);
 			retbuff = temp;

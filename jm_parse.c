@@ -373,9 +373,9 @@ static char *string(struct jm_parser
 		return NULL;
 	}
 	p->ch++;
-	size_t buff_size = 256;
+	size_t buffsize = 256;
 	char *buff = NULL, *retbuff = NULL;
-	if ((buff = malloc(buff_size)) == NULL)
+	if ((buff = malloc(buffsize)) == NULL)
 		return NULL;
 	retbuff = buff;
 	while (*p->ch != '\0') {
@@ -393,10 +393,10 @@ static char *string(struct jm_parser
 		}
 		p->ch++;
 /* At most two bytes is added */
-		if (buff_size - 1 <= (size_t) (buff - retbuff)) {
+		if (buffsize - 1 <= (size_t) (buff - retbuff)) {
 			char *temp;
-			buff_size *= 2;
-			if ((temp = realloc(retbuff, buff_size)) == NULL)
+			buffsize *= 2;
+			if ((temp = realloc(retbuff, buffsize)) == NULL)
 				goto err;
 			buff = temp + (buff - retbuff);
 			retbuff = temp;
@@ -448,7 +448,7 @@ static char *literal(struct jm_parser
 
 /* Code buffer */
 	char *buff = NULL, *retbuff = NULL;
-	size_t buff_size = 256;
+	size_t buffsize = 256;
 	struct brackets_s {
 		int cur;
 		int sqr;
@@ -471,7 +471,7 @@ static char *literal(struct jm_parser
 		return strdup("null");
 	}
 
-	if ((buff = malloc(buff_size)) == NULL)
+	if ((buff = malloc(buffsize)) == NULL)
 		return NULL;
 	retbuff = buff;
 	while (*p->ch != '\0') {
@@ -513,10 +513,10 @@ static char *literal(struct jm_parser
 		}
 
 		*buff++ = *p->ch++;
-		if (buff_size <= (size_t) (buff - retbuff)) {
+		if (buffsize <= (size_t) (buff - retbuff)) {
 			char *temp;
-			buff_size *= 2;
-			if ((temp = realloc(retbuff, buff_size)) == NULL)
+			buffsize *= 2;
+			if ((temp = realloc(retbuff, buffsize)) == NULL)
 				goto err;
 			buff = temp + (buff - retbuff);
 			retbuff = temp;
@@ -578,56 +578,61 @@ jm_object_t *jm_parse(char *source)
 	p->ids = jm_newObject();
 	result = value(p);
 	white(p);
-	if (result && *p->ch != '\0') {
-		err(p, '\0');
-		free(p);
-		jm_free(result);
-		return NULL;
+	if (result) {
+		if (*p->ch != '\0') {
+			err(p, '\0');
+			free(p);
+			jm_free(result);
+			return NULL;
+		}
+		result->ids = p->ids;	/* Used my jm_merge... */
+	}
+	else {
+		jm_free(p->ids);
 	}
 
-	result->ids = p->ids;	/* Used my jm_merge... */
 	free(p);
 	return result;
+}
+
+static char *slurpFile(FILE *fh)
+{
+	long buffsize = 0;
+	char *buff = NULL;
+
+	fseek(fh, 0, SEEK_END);
+	buffsize = ftell(fh);
+	buff = malloc(buffsize + 1);
+	fseek(fh, 0, SEEK_SET);
+	fread(buff, 1, buffsize, fh);
+
+	buff[buffsize] = '\0';
+
+	return buff;
 }
 
 jm_object_t *jm_parseFile(char *file)
 {
 	FILE *fh = strcmp(file, "-") == 0 ? stdin : fopen(file, "rb");
-	char *buff = NULL, *source = NULL;
-	size_t buff_size = 256;
-	int ch;
-	jm_object_t *node = NULL;
+	jm_object_t *ret = NULL;
+	char *source = NULL;
+
 	if (!fh) {
 		fprintf(stderr,
 			"%s: cannot access '%s'\n", PROGRAM_NAME, file);
 		goto err;
 	}
-	if ((buff = malloc(buff_size)) == NULL)
-		goto err;
-	source = buff;
-	while ((ch = getc(fh)) != EOF) {
-		*buff++ = ch;
-		if (buff_size <= (size_t) (buff - source)) {
-			char *temp;
-			buff_size *= 2;
-			if ((temp = realloc(source, buff_size)) == NULL)
-				goto err;
-			buff = temp + (buff - source);
-			source = temp;
-		};
-	}
 
-	*buff = '\0';
-	if ((node = jm_parse(source)) == NULL)
+	if ((source = slurpFile(fh)) == NULL)
 		goto err;
-	free(source);
-	if (fh != stdin)
-		fclose(fh);
-	node->filename = strdup(file);
-	return node;
+
+	if ((ret = jm_parse(source)) == NULL)
+		goto err;
+
+	ret->filename = strdup(file);
       err:
 	free(source);
-	if (fh != NULL && fh != stdin)
+	if (fh && fh != stdin)
 		fclose(fh);
-	return NULL;
+	return ret;
 }
