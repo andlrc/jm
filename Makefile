@@ -10,25 +10,24 @@ CFLAGS	= -O3 -std=c89 -D_POSIX_C_SOURCE=200809L -Wall -Werror -Wextra \
 	  -DPROGRAM_VERSION="\"$(VERSION)\""
 
 CDEBUG	= -std=c89 -g -D_POSIX_C_SOURCE=200809L -DJMDEBUG
-CFILES	= json_merger.c jm.c jm_query.c jm_parse.c jm_serialize.c jm_merge.c
-HFILES	= jm.h
+CFILES	= src/*.c
+HFILES	= src/*.h
 TFILES	= $(CFILES) $(HFILES)
-OFILES	= *.o
-
+OFILES	= src/jm.o src/jm_query.o src/jm_parse.o src/jm_serialize.o \
+	  src/jm_merge.o src/json_merger.o
 # Build
 
 all:	$(PRGNAME)
 
-$(PRGNAME):	jm.o jm_query.o jm_parse.o jm_serialize.o jm_merge.o json_merger.o
-	$(CC) $(CFLAGS) -o $(PRGNAME) \
-		jm.o jm_query.o jm_parse.o jm_serialize.o jm_merge.o json_merger.o
+$(PRGNAME):	$(OFILES)
+	$(CC) $(CFLAGS) -o $(PRGNAME) $(OFILES)
 
-json_merger.o:	jm.h json_merger.c
-jm.o:	jm.h jm.c
-jm_query.o:	jm.h jm_query.c
-jm_parse.o:	jm.h jm_parse.c
-jm_serialize.o:	jm.h jm_serialize.c
-jm_merge.o:	jm.h jm_merge.c
+src/json_merger.o:	src/jm.h src/json_merger.c
+src/jm.o:	src/jm.h src/jm.c
+src/jm_query.o:	src/jm.h src/jm_query.c
+src/jm_parse.o:	src/jm.h src/jm_parse.c
+src/jm_serialize.o:	src/jm.h src/jm_serialize.c
+src/jm_merge.o:	src/jm.h src/jm_merge.c
 
 # Build with Symbols
 
@@ -59,6 +58,10 @@ clean:
 
 indent:
 	indent -kr -i8 $(CFILES) $(HFILES)
+
+test:	$(PRGNAME) .TEST
+.TEST:
+	cd test && ./runtests
 
 tags:	$(TFILES)
 	ctags $(TFILES)
