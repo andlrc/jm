@@ -106,11 +106,16 @@ MATCH SYNTAX
                [property]
                [property=value]
                [property='value']
-               ['property'='value']
                [@SPECIAL=value]
 
            If  single  quotes  is  used a string will be matches.  Note that a
            string will still be checked even when they are omitted.
+
+           Check for a property beginning, containing and ending with value
+
+               [property^=value]
+               [property*=value]
+               [property$=value]
 
            The list of @SPECIAL are:
 

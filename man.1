@@ -117,12 +117,18 @@ Match a property with a primitive value, the syntax is:
 .br
 \&    [property='value']
 .br
-\&    ['property'='value']
-.br
 \&    [@SPECIAL=value]
 
 If single quotes is used a string will be matches.  Note that a string will
 still be checked even when they are omitted.
+
+Check for a property beginning, containing and ending with \fBvalue\fR
+
+\&    [property^=value]
+.br
+\&    [property*=value]
+.br
+\&    [property$=value]
 
 The list of \fB@SPECIAL\fR are:
 

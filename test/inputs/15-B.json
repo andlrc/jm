@@ -1,0 +1,3 @@
+{ "@extends": "15-A.json", "a": [
+	{ "@match": "[a*=ef]", "b": 1}
+] }

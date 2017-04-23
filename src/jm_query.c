@@ -125,9 +125,10 @@ static jm_object_t *query(jm_object_t * node, struct jm_qrule_s *rule,
 			if (childNode->type != jm_type_string
 			    && childNode->type != jm_type_literal)
 				return NULL;
+			rlen = strlen(rule->value);
 			val = childNode->value;
 			while (*val != '\0') {
-				if (strcmp(val, rule->value) == 0)
+				if (strncmp(val, rule->value, rlen) == 0)
 					break;
 				val++;
 			}
