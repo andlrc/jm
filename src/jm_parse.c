@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include "jm.h"
 
+#define INDICATOR_MARKER '@'
+
 struct jm_parser {
 	char *source;		/* Used for error messages, contains original
 				   source to parse */
@@ -27,27 +29,22 @@ enum jm_indicators_e {
 	jm_indicator_comment
 };
 
-static void white(struct jm_parser *p);
-static jm_object_t *object(struct jm_parser *p);
-static jm_object_t *array(struct jm_parser *p);
 static char *string(struct jm_parser *p);
-static char *number(struct jm_parser *p);
-static char *literal(struct jm_parser *p);
 static jm_object_t *value(struct jm_parser *p);
 
 static void err(struct jm_parser *p, char ex)
 {
-	size_t row = p->lineno, col = p->ch - p->source - p->llineno;
-	char expected[4] = "EOF", got[4] = "EOF";
+	char expected[4] = "EOF",
+	     got[4] = "EOF";
 
 	if (ex != '\0')
 		sprintf(expected, "'%c'", ex);
 	if (*p->ch != '\0')
 		sprintf(got, "'%c'", *p->ch);
 
-	fprintf(stderr,
-		"%s: expected %s instead of %s at %zu:%zu\n",
-		PROGRAM_NAME, expected, got, row, col);
+	fprintf(stderr, "%s: expected %s instead of %s at %zu:%zu\n",
+		PROGRAM_NAME, expected, got,
+		p->lineno, p->ch - p->source - p->llineno);
 }
 
 static int add_inserter(jm_object_t * object, jm_object_t * in,
@@ -109,8 +106,8 @@ static int add_matcher_(jm_object_t * matchers, char *selector,
 	}
 }
 
-static int add_matcher(jm_object_t * object, jm_object_t * in, enum
-		       jm_indicators_e type)
+static int add_matcher(jm_object_t * object, jm_object_t * in,
+		       enum jm_indicators_e type)
 {
 	jm_object_t *matchers = NULL, *next = NULL;
 	matchers = object->indicators->matchers;
@@ -150,7 +147,7 @@ static int add_matcher(jm_object_t * object, jm_object_t * in, enum
 
 static enum jm_indicators_e indicator(char *key)
 {
-	if (*key++ == '@') {
+	if (*key++ == INDICATOR_MARKER) {
 		switch (*key++) {
 		case 'a':	/* @append */
 			return jm_indicator_append;
@@ -254,7 +251,7 @@ static jm_object_t *object(struct jm_parser *p)
 		case jm_indicator_extends:
 			object->indicators->extends = val;
 			break;
-		case jm_indicator_append:	/* Store all inserter together */
+		case jm_indicator_append:	/* At most one inserter per object */
 		case jm_indicator_prepend:
 		case jm_indicator_insert:
 			if (add_inserter(object, val, type)) {
@@ -332,7 +329,8 @@ static jm_object_t *array(struct jm_parser *p)
 	p->ch++;
 	jm_object_t *array = jm_newArray();
 	white(p);
-/* Empty array */
+
+	/* Empty array */
 	if (*p->ch == ']') {
 		p->ch++;
 		return array;
@@ -365,19 +363,21 @@ static jm_object_t *array(struct jm_parser *p)
 	return NULL;
 }
 
-static char *string(struct jm_parser
-		    *p)
+static char *string(struct jm_parser *p)
 {
+	size_t buffsize;
+	char *buff = NULL, *retbuff = NULL;
 	if (*p->ch != '"') {
 		err(p, '"');
 		return NULL;
 	}
 	p->ch++;
-	size_t buffsize = 256;
-	char *buff = NULL, *retbuff = NULL;
+
+	buffsize = 256;
 	if ((buff = malloc(buffsize)) == NULL)
 		return NULL;
 	retbuff = buff;
+
 	while (*p->ch != '\0') {
 		switch (*p->ch) {
 		case '"':
@@ -387,12 +387,12 @@ static char *string(struct jm_parser
 			break;
 		case '\\':
 			*buff++ = *p->ch++;
-/* Fallthough */
+			/* Fallthough */
 		default:
 			*buff++ = *p->ch;
 		}
 		p->ch++;
-/* At most two bytes is added */
+		/* At most two bytes is added */
 		if (buffsize - 1 <= (size_t) (buff - retbuff)) {
 			char *temp;
 			buffsize *= 2;
@@ -409,33 +409,30 @@ static char *string(struct jm_parser
 	return NULL;
 }
 
-static char *number(struct jm_parser
-		    *p)
+static char *number(struct jm_parser *p)
 {
 	char *buff = NULL, *retbuff = NULL;
+
 	if ((buff = malloc(256)) == NULL)
 		return 0;
 	retbuff = buff;
 	if (*p->ch == '-')
 		*buff++ = *p->ch++;
-	while (*p->ch >= '0' && *p->ch <= '9') {
+	while (*p->ch >= '0' && *p->ch <= '9')
 		*buff++ = *p->ch++;
-	}
 
 	if (*p->ch == '.') {
 		*buff++ = *p->ch++;
-		while (*p->ch != '\0' && *p->ch >= '0' && *p->ch <= '9') {
+		while (*p->ch >= '0' && *p->ch <= '9')
 			*buff++ = *p->ch++;
-		}
 	}
 
 	if (*p->ch == 'e' || *p->ch == 'E') {
 		*buff++ = *p->ch++;
 		if (*p->ch == '-' || *p->ch == '+')
 			*buff++ = *p->ch;
-		while (*p->ch >= '0' && *p->ch <= '9') {
+		while (*p->ch >= '0' && *p->ch <= '9')
 			*buff++ = *p->ch++;
-		}
 	}
 
 	*buff = '\0';
@@ -445,9 +442,9 @@ static char *number(struct jm_parser
 static char *literal(struct jm_parser *p)
 {
 
-/* Code buffer */
+	/* Code buffer */
 	char *buff = NULL, *retbuff = NULL;
-	size_t buffsize = 256;
+	size_t buffsize;
 	struct brackets_s {
 		int cur;
 		int sqr;
@@ -469,6 +466,7 @@ static char *literal(struct jm_parser *p)
 		return strdup("null");
 	}
 
+	buffsize = 256;
 	if ((buff = malloc(buffsize)) == NULL)
 		return NULL;
 	retbuff = buff;
@@ -592,9 +590,9 @@ jm_object_t *jm_parse(char *source)
 
 static char *slurpFile(FILE * fh)
 {
-	long buffsize = 0;
 	char *buff = NULL;
-	size_t len = 0;
+	long buffsize;
+	size_t len;
 
 	fseek(fh, 0, SEEK_END);
 	buffsize = ftell(fh);
@@ -608,11 +606,11 @@ static char *slurpFile(FILE * fh)
 
 jm_object_t *jm_parseFile(char *file)
 {
-	FILE *fh = strcmp(file, "-") == 0 ? stdin : fopen(file, "rb");
+	FILE *fh = NULL;
 	jm_object_t *ret = NULL;
 	char *source = NULL;
 
-	if (!fh) {
+	if (!(fh = strcmp(file, "-") == 0 ? stdin : fopen(file, "rb"))) {
 		fprintf(stderr,
 			"%s: cannot access '%s'\n", PROGRAM_NAME, file);
 		goto err;
