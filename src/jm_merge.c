@@ -170,22 +170,19 @@ static int mergeObject(jm_object_t * dest, jm_object_t * src,
 			case jm_type_lmatch:
 				/* An object inside an array queries from the array */
 				if (dest->parent == NULL
-				    || dest->parent->type ==
-				    jm_type_object)
+				    || dest->parent->type == jm_type_object)
 					tmpnode = dest;
 				else
 					tmpnode = dest->parent;
 
-				if ((dest =
-				     jm_query(tmpnode, next->value,
-					      ids)) == NULL)
+				if ((dest = jm_query(tmpnode, next->value, ids)) == NULL)
 					return 1;
-				if (src->indicators->move)
-					return
-					    jm_arrayInsertAt(dest->parent,
-							     atoi
-							     (next->value),
-							     dest);
+				if (src->indicators->move) {
+					jm_object_t *move = src->indicators->move;
+					jm_arrayInsertAt(dest->parent,
+							 atoi(move->value),
+							 dest);
+				}
 				break;
 			case jm_type_ldelete:
 				if ((tmpnode =
