@@ -61,7 +61,7 @@ indent:
 
 test:	$(PRGNAME) .TEST
 .TEST:
-	cd test && ./runtests
+	CDPATH= cd test && ./runtests
 
 tags:	$(TFILES)
 	ctags $(TFILES)
