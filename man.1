@@ -28,15 +28,6 @@ Show help and exit.
 .IP "\fB-V\fR, \fB--version\fR" 4
 Print version information.
 
-.SH "EXIT STATUS"
-The following exit values shall be returned:
-
-.IP "\fB0\fR" 4
-Successful completion.
-
-.IP "\fB>0\fR" 4
-An error occurred.
-
 .SH "INDICATORS"
 .IP "\fB@extends\fR" 4
 An array or string of path names to files which should be extended.
@@ -300,6 +291,7 @@ One can match and delete the \fBB\fR with:
 
 .IP "\fBMatch @id\fR" 4
 Having \fBb.json\fR as:
+
 \&    {
 .br
 \&      "a": { "@id": "a" },
@@ -323,6 +315,15 @@ One can match and delete the \fBa\fR with:
 .SH "ROOT NODE"
 A root node is the outer most node in a JSON file. These can contain
 \fB@extends\fR, but \fIcannot\fR be deleted nor overridden.
+
+.SH "EXIT STATUS"
+The following exit values shall be returned:
+
+.IP "\fB0\fR" 4
+Successful completion.
+
+.IP "\fB>0\fR" 4
+An error occurred.
 
 .SH "AUTHOR"
 

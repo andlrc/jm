@@ -37,7 +37,7 @@ debug:	clean
 # Docs
 
 README:	man.1
-	MANWIDTH=80 man -l man.1 > README
+	LC_ALL=C MANWIDTH=80 man -l man.1 > README
 
 # Install
 

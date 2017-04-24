@@ -27,13 +27,6 @@ OPTIONS
        -V, --version
            Print version information.
 
-EXIT STATUS
-       The following exit values shall be returned:
-
-       0   Successful completion.
-
-       >0  An error occurred.
-
 INDICATORS
        @extends
            An array or string of path names to files which should be extended.
@@ -244,7 +237,9 @@ EXAMPLE
                }
 
        Match @id
-           Having b.json as:     {
+           Having b.json as:
+
+               {
                  "a": { "@id": "a" },
                  "b": { "@id": "b" }
                }
@@ -260,6 +255,13 @@ EXAMPLE
 ROOT NODE
        A root node is the outer most node in a JSON file.  These  can  contain
        @extends, but cannot be deleted nor overridden.
+
+EXIT STATUS
+       The following exit values shall be returned:
+
+       0   Successful completion.
+
+       >0  An error occurred.
 
 AUTHOR
        Andreas Louv <andreas@louv.dk> is the author of json_merger.
