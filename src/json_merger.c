@@ -68,17 +68,18 @@ int main(int argc, char **argv)
 		case 'v':
 			tmpbuf = strdup(optarg);
 			varkey = tmpbuf;
-			while (*tmpbuf != '\0' && *tmpbuf != '=') {
-				tmpbuf++;
+			tmpbuf = strchr(varkey, '=');
+			if (!tmpbuf) {
+				print_usage();
+				goto err;
 			}
 			*tmpbuf++ = '\0';
 			jm_moveInto(vars, varkey, jm_newString(tmpbuf));
 			free(varkey);
 			break;
 		default:
-			goto err;
 			print_usage();
-			exit(EXIT_FAILURE);
+			goto err;
 		}
 	}
 
