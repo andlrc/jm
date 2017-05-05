@@ -43,12 +43,11 @@ int main(int argc, char **argv)
 	int ch, argind, pretty = 0;
 	jm_object_t *vars = NULL;
 
-	if ((vars = jm_newObject()) == NULL)
+	if (!(vars = jm_newObject()))
 		goto err;
 
-	while ((ch =
-		getopt_long(argc, argv, short_options, long_options,
-			    NULL)) != -1) {
+	while ((ch = getopt_long(argc, argv, short_options, long_options,
+				 NULL)) != -1) {
 		switch (ch) {
 		case 'V':
 			print_version();
@@ -92,7 +91,7 @@ int main(int argc, char **argv)
 		if (argind < argc)
 			infile = argv[argind];
 
-		if ((root = jm_parseFile(infile)) == NULL)
+		if (!(root = jm_parseFile(infile)))
 			goto err;
 
 
@@ -105,7 +104,7 @@ int main(int argc, char **argv)
 		if (strcmp(infile, "-") != 0 && suffix) {
 			char *outfile = NULL;
 			size_t inlen = strlen(infile);
-			if ((outfile = malloc(inlen + suflen + 1)) == NULL)
+			if (!(outfile = malloc(inlen + suflen + 1)))
 				continue;
 			memcpy(outfile, infile, inlen);
 			memcpy(outfile + inlen, suffix, suflen + 1);

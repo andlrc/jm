@@ -6,7 +6,7 @@ jm_object_t *jm_newNode(enum jm_type_e type)
 {
 	jm_object_t *node = NULL;
 
-	if ((node = malloc(sizeof(jm_object_t))) == NULL) {
+	if (!(node = malloc(sizeof(jm_object_t)))) {
 		return NULL;
 	}
 
@@ -30,10 +30,10 @@ jm_object_t *jm_newObject(void)
 	jm_object_t *node = NULL;
 	struct jm_indicators_s *indicators = NULL;
 
-	if ((node = jm_newNode(jm_type_object)) == NULL)
+	if (!(node = jm_newNode(jm_type_object)))
 		return NULL;
 
-	if ((indicators = malloc(sizeof(struct jm_indicators_s))) == NULL) {
+	if (!(indicators = malloc(sizeof(struct jm_indicators_s)))) {
 		jm_free(node);
 		return NULL;
 	}
@@ -53,7 +53,7 @@ jm_object_t *jm_newArray(void)
 {
 	jm_object_t *node = NULL;
 
-	if ((node = jm_newNode(jm_type_array)) == NULL)
+	if (!(node = jm_newNode(jm_type_array)))
 		return NULL;
 
 	return node;
@@ -63,7 +63,7 @@ jm_object_t *jm_newString(char *buff)
 {
 	jm_object_t *node = NULL;
 
-	if ((node = jm_newNode(jm_type_string)) == NULL)
+	if (!(node = jm_newNode(jm_type_string)))
 		return NULL;
 
 	node->value = strdup(buff);
@@ -75,7 +75,7 @@ jm_object_t *jm_newLiteral(char *buff)
 {
 	jm_object_t *node = NULL;
 
-	if ((node = jm_newNode(jm_type_literal)) == NULL)
+	if (!(node = jm_newNode(jm_type_literal)))
 		return NULL;
 
 	node->value = strdup(buff);
@@ -95,7 +95,7 @@ jm_object_t *jm_locate(jm_object_t * node, char *key)
 
 	next = node->firstChild;
 
-	while (next != NULL && strcmp(next->name, key) != 0)
+	while (next && strcmp(next->name, key) != 0)
 		next = next->nextSibling;
 
 	return next;
@@ -126,10 +126,10 @@ int jm_moveInto(jm_object_t * node, char *key, jm_object_t * child)
 
 		last = next;
 		next = next->nextSibling;
-	} while (next != NULL);
+	} while (next);
 
-	if (next != NULL) {	/* Update property */
-		if (last != NULL)
+	if (next) {		/* Update property */
+		if (last)
 			last->nextSibling = child;
 
 		child->nextSibling = next->nextSibling;
@@ -170,12 +170,12 @@ int jm_detach(jm_object_t * node)
 		}
 	}
 
-	while (next != node && next != NULL) {
+	while (next != node && next) {
 		last = next;
 		next = next->nextSibling;
 	}
 
-	if (last != NULL) {
+	if (last) {
 		last->nextSibling = node->nextSibling;
 		if (node == parent->lastChild)
 			parent->lastChild = last;
@@ -199,16 +199,16 @@ int jm_moveOver(jm_object_t * dest, jm_object_t * src)
 
 	jm_detach(src);
 
-	src->name = dest->name != NULL ? strdup(dest->name) : NULL;
+	src->name = dest->name ? strdup(dest->name) : NULL;
 	src->parent = dest->parent;
 
 	next = parent->firstChild;
 
-	while (next != dest && next != NULL) {
+	while (next != dest && next) {
 		last = next;
 		next = next->nextSibling;
 	}
-	if (last != NULL) {
+	if (last) {
 		last->nextSibling = src;
 	}
 
@@ -241,7 +241,7 @@ int jm_arrayPush(jm_object_t * node, jm_object_t * child)
 	child->parent = node;
 	child->nextSibling = NULL;
 
-	if (node->lastChild != NULL) {
+	if (node->lastChild) {
 		node->lastChild->nextSibling = child;
 		node->lastChild = child;
 	} else {
@@ -299,10 +299,10 @@ int jm_moveIntoId(jm_object_t * ids, char *id, jm_object_t * node)
 	int ret;
 	jm_object_t *wrp = NULL, *wrpinner;
 
-	if ((wrp = jm_newArray()) == NULL)
+	if (!(wrp = jm_newArray()))
 		return 1;
 
-	if ((wrpinner = jm_newNode(jm_type_lid)) == NULL) {
+	if (!(wrpinner = jm_newNode(jm_type_lid))) {
 		jm_free(wrp);
 		return 1;
 	}
@@ -329,7 +329,7 @@ int jm_moveIntoId(jm_object_t * ids, char *id, jm_object_t * node)
 jm_object_t *jm_locateId(jm_object_t * ids, char *id)
 {
 	jm_object_t *wrp = NULL, *wrpinner = NULL;
-	if ((wrp = jm_locate(ids, id)) == NULL)
+	if (!(wrp = jm_locate(ids, id)))
 		return NULL;
 
 	wrpinner = wrp->firstChild;

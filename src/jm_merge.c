@@ -37,7 +37,7 @@ static int template(char *dest, char *src, jm_object_t * vars)
 			}
 
 			*pkey = '\0';
-			if ((keyNode = jm_locate(vars, key)) != NULL) {
+			if ((keyNode = jm_locate(vars, key))) {
 				pval = keyNode->value;
 				while (*pval != '\0')
 					*dest++ = *pval++;
@@ -72,13 +72,13 @@ static int mergeArray(jm_object_t * dest, jm_object_t * src,
 
 	srcNext = src->firstChild;
 	destNext = dest->firstChild;
-	while (srcNext != NULL) {
+	while (srcNext) {
 		srcNext2 = srcNext->nextSibling;
 
 		/* inserters happen after the array is merged */
 		if (srcNext->type == jm_type_object
 		    && srcNext->indicators->inserter) {
-			if (finserter == NULL) {
+			if (!finserter) {
 				finserter =
 				    malloc(sizeof(struct inserter_s));
 				inserter = finserter;
@@ -90,7 +90,7 @@ static int mergeArray(jm_object_t * dest, jm_object_t * src,
 			inserter->src = srcNext;
 			inserter->inserter = srcNext->indicators->inserter;
 			inserter->next = NULL;
-		} else if (destNext == NULL) {
+		} else if (!destNext) {
 			if (jm_arrayPush(dest, srcNext))
 				goto errmov;
 		} else {
@@ -163,7 +163,7 @@ static int mergeObject(jm_object_t * dest, jm_object_t * src,
 				   processing matchers */
 	jm_object_t *matchers = NULL, *next = NULL, *tmpnode = NULL;
 	matchers = src->indicators->matchers;
-	if (matchers != NULL) {
+	if (matchers) {
 		next = matchers->firstChild;
 		while (next) {
 			switch (next->type) {
@@ -175,19 +175,20 @@ static int mergeObject(jm_object_t * dest, jm_object_t * src,
 				else
 					tmpnode = dest->parent;
 
-				if ((dest = jm_query(tmpnode, next->value, ids)) == NULL)
+				if (!(dest = jm_query(tmpnode,
+						      next->value, ids)))
 					return 1;
 				if (src->indicators->move) {
-					jm_object_t *move = src->indicators->move;
+					jm_object_t *move =
+					    src->indicators->move;
 					jm_arrayInsertAt(dest->parent,
 							 atoi(move->value),
 							 dest);
 				}
 				break;
 			case jm_type_ldelete:
-				if ((tmpnode =
-				     jm_query(dest, next->value,
-					      ids)) == NULL)
+				if (!(tmpnode = jm_query(dest,
+							 next->value, ids)))
 					return 1;
 				if (dest == tmpnode)
 					didself = 1;
@@ -200,9 +201,8 @@ static int mergeObject(jm_object_t * dest, jm_object_t * src,
 				jm_free(tmpnode);
 				break;
 			case jm_type_loverride:
-				if ((tmpnode =
-				     jm_query(dest, next->value,
-					      ids)) == NULL)
+				if (!(tmpnode = jm_query(dest,
+							 next->value, ids)))
 					return 1;
 				if (!tmpnode->parent) {
 					fprintf(stderr,
@@ -258,10 +258,10 @@ static int mergeObject(jm_object_t * dest, jm_object_t * src,
 
 	srcNext = src->firstChild;
 
-	while (srcNext != NULL) {
+	while (srcNext) {
 		srcNext2 = srcNext->nextSibling;
 
-		if ((destNext = jm_locate(dest, srcNext->name)) == NULL)
+		if (!(destNext = jm_locate(dest, srcNext->name)))
 			jm_moveInto(dest, srcNext->name, srcNext);
 		else if ((ret = merge(destNext, srcNext, ids)))
 			return ret;
@@ -322,11 +322,11 @@ static jm_object_t *initMerge(jm_object_t * node, char *path,
 	free(dir);
 
 	template(filename, path, vars);
-	if ((tmp = jm_parseFile(filename)) == NULL) {
+	if (!(tmp = jm_parseFile(filename))) {
 		return NULL;
 	}
 
-	if ((src = recurseMerge(tmp, vars)) == NULL) {
+	if (!(src = recurseMerge(tmp, vars))) {
 		jm_free(tmp);
 		return NULL;
 	}
@@ -349,17 +349,16 @@ static jm_object_t *recurseMerge(jm_object_t * node, jm_object_t * vars)
 		extends = node->indicators->extends;
 		switch (extends->type) {
 		case jm_type_string:
-			if ((dest = initMerge(node, extends->value,
-					      vars)) == NULL) {
+			if (!(dest = initMerge(node,
+					       extends->value, vars))) {
 				return NULL;
 			}
 			break;
 		case jm_type_array:
 			next = extends->firstChild;
-			while (next != NULL) {
-				if ((src =
-				     initMerge(node, next->value,
-					       vars)) == NULL) {
+			while (next) {
+				if (!(src = initMerge(node,
+						      next->value, vars))) {
 					jm_free(dest);
 					return NULL;
 				}

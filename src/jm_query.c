@@ -49,7 +49,6 @@ static jm_object_t *query(jm_object_t * node, struct jm_qrule_s *rule,
 			  jm_object_t * ids)
 {
 	size_t rlen, nlen;
-	char *val;
 
 	if (!node || !rule)	/* Can be NULL and a valid pointer which is OK */
 		return node;
@@ -58,8 +57,8 @@ static jm_object_t *query(jm_object_t * node, struct jm_qrule_s *rule,
 		jm_object_t *next = NULL;
 		next = node->firstChild;
 
-		while (next != NULL) {
-			if ((node = query(next, rule, ids)) != NULL)
+		while (next) {
+			if ((node = query(next, rule, ids)))
 				return node;
 			next = next->nextSibling;
 		}
@@ -67,7 +66,7 @@ static jm_object_t *query(jm_object_t * node, struct jm_qrule_s *rule,
 		return NULL;
 	}
 
-	while (rule != NULL) {
+	while (rule) {
 		jm_object_t *childNode = NULL;
 		switch (rule->type) {
 		case rule_type_unknown:
@@ -125,14 +124,7 @@ static jm_object_t *query(jm_object_t * node, struct jm_qrule_s *rule,
 			if (childNode->type != jm_type_string
 			    && childNode->type != jm_type_literal)
 				return NULL;
-			rlen = strlen(rule->value);
-			val = childNode->value;
-			while (*val != '\0') {
-				if (strncmp(val, rule->value, rlen) == 0)
-					break;
-				val++;
-			}
-			if (*val == '\0')
+			if (!strstr(childNode->value, rule->value))
 				return NULL;
 			break;
 		case rule_type_value:
@@ -146,8 +138,7 @@ static jm_object_t *query(jm_object_t * node, struct jm_qrule_s *rule,
 		case rule_type_all:	/* noop */
 			break;
 		case rule_type_id:
-			if ((childNode =
-			     jm_locate(ids, rule->value)) == NULL)
+			if (!(childNode = jm_locate(ids, rule->value)))
 				return NULL;
 			if ((node =
 			     query(childNode->firstChild->firstChild,
@@ -176,7 +167,7 @@ static jm_object_t *query(jm_object_t * node, struct jm_qrule_s *rule,
 static void jm_freeqr(struct jm_qrule_s *rule)
 {
 	struct jm_qrule_s *last = NULL;
-	while (rule != NULL) {
+	while (rule) {
 		free(rule->key);
 		free(rule->value);
 		last = rule;
@@ -191,14 +182,14 @@ static struct jm_qrule_s *parse(char *selector)
 	struct jm_qrule_s *frule = NULL, *prevRule = NULL, *rule = NULL;
 	struct jm_parser_s *p = NULL;
 
-	if ((p = malloc(sizeof(struct jm_parser_s))) == NULL)
+	if (!(p = malloc(sizeof(struct jm_parser_s))))
 		return NULL;
 
 	p->selector = selector;
 	p->ch = selector;
 
 	while (*p->ch != '\0') {
-		if ((rule = malloc(sizeof(struct jm_qrule_s))) == NULL) {
+		if (!(rule = malloc(sizeof(struct jm_qrule_s)))) {
 			jm_freeqr(frule);
 			free(p);
 			return NULL;
@@ -231,7 +222,7 @@ static struct jm_qrule_s *parse(char *selector)
 				rule->isString = 1;
 			}
 
-			if ((buff = malloc(256)) == NULL) {
+			if (!(buff = malloc(256))) {
 				jm_freeqr(frule);
 				free(p);
 				return NULL;
@@ -317,7 +308,7 @@ static struct jm_qrule_s *parse(char *selector)
 				rule->isString = 1;
 			}
 
-			if ((buff = malloc(256)) == NULL) {
+			if (!(buff = malloc(256))) {
 				jm_freeqr(frule);
 				free(p);
 				return NULL;
@@ -356,7 +347,7 @@ static struct jm_qrule_s *parse(char *selector)
 		case '#':
 			/* ID match, an ID matches the following regex
 			 * [a-zA-Z0-9_] */
-			if ((buff = malloc(256)) == NULL) {
+			if (!(buff = malloc(256))) {
 				jm_freeqr(frule);
 				free(p);
 				return NULL;
@@ -374,7 +365,7 @@ static struct jm_qrule_s *parse(char *selector)
 		default:
 			p->ch--;
 			/* Directory like query */
-			if ((buff = malloc(256)) == NULL) {
+			if (!(buff = malloc(256))) {
 				jm_freeqr(frule);
 				free(p);
 				return NULL;
@@ -414,10 +405,10 @@ jm_object_t *jm_query(jm_object_t * node, char *selector,
 	if (!node)
 		return NULL;
 
-	if ((rule = parse(selector)) == NULL)
+	if (!(rule = parse(selector)))
 		return NULL;
 
-	if ((match = query(node, rule, ids)) == NULL) {
+	if (!(match = query(node, rule, ids))) {
 		fprintf(stderr, "%s: selector '%s' disn't match\n",
 			PROGRAM_NAME, selector);
 		jm_freeqr(rule);

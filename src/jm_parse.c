@@ -227,7 +227,7 @@ static jm_object_t *object(struct jm_parser *p)
 		char *key = NULL;
 		enum jm_indicators_e type;
 
-		if ((key = string(p)) == NULL) {
+		if (!(key = string(p))) {
 			jm_free(object);
 			return NULL;
 		}
@@ -240,7 +240,7 @@ static jm_object_t *object(struct jm_parser *p)
 			return NULL;
 		}
 		p->ch++;
-		if ((val = value(p)) == NULL) {
+		if (!(val = value(p))) {
 			free(key);
 			jm_free(object);
 			return NULL;
@@ -338,7 +338,7 @@ static jm_object_t *array(struct jm_parser *p)
 
 	while (*p->ch != '\0') {
 		jm_object_t *val = NULL;
-		if ((val = value(p)) == NULL) {
+		if (!(val = value(p))) {
 			free(array);
 			return NULL;
 		}
@@ -374,7 +374,7 @@ static char *string(struct jm_parser *p)
 	p->ch++;
 
 	buffsize = 256;
-	if ((buff = malloc(buffsize)) == NULL)
+	if (!(buff = malloc(buffsize)))
 		return NULL;
 	retbuff = buff;
 
@@ -396,7 +396,7 @@ static char *string(struct jm_parser *p)
 		if (buffsize - 1 <= (size_t) (buff - retbuff)) {
 			char *temp;
 			buffsize *= 2;
-			if ((temp = realloc(retbuff, buffsize)) == NULL)
+			if (!(temp = realloc(retbuff, buffsize)))
 				goto err;
 			buff = temp + (buff - retbuff);
 			retbuff = temp;
@@ -413,7 +413,7 @@ static char *number(struct jm_parser *p)
 {
 	char *buff = NULL, *retbuff = NULL;
 
-	if ((buff = malloc(256)) == NULL)
+	if (!(buff = malloc(256)))
 		return 0;
 	retbuff = buff;
 	if (*p->ch == '-')
@@ -467,7 +467,7 @@ static char *literal(struct jm_parser *p)
 	}
 
 	buffsize = 256;
-	if ((buff = malloc(buffsize)) == NULL)
+	if (!(buff = malloc(buffsize)))
 		return NULL;
 	retbuff = buff;
 	while (*p->ch != '\0') {
@@ -510,7 +510,7 @@ static char *literal(struct jm_parser *p)
 		if (buffsize <= (size_t) (buff - retbuff)) {
 			char *temp;
 			buffsize *= 2;
-			if ((temp = realloc(retbuff, buffsize)) == NULL)
+			if (!(temp = realloc(retbuff, buffsize)))
 				goto err;
 			buff = temp + (buff - retbuff);
 			retbuff = temp;
@@ -562,8 +562,7 @@ jm_object_t *jm_parse(char *source)
 {
 	jm_object_t *result;
 	struct jm_parser *p = NULL;
-	if ((p = malloc(sizeof(struct jm_parser)))
-	    == NULL)
+	if (!(p = malloc(sizeof(struct jm_parser))))
 		return NULL;
 	p->lineno = 1;
 	p->llineno = 0;
@@ -616,10 +615,10 @@ jm_object_t *jm_parseFile(char *file)
 		goto err;
 	}
 
-	if ((source = slurpFile(fh)) == NULL)
+	if (!(source = slurpFile(fh)))
 		goto err;
 
-	if ((ret = jm_parse(source)) == NULL)
+	if (!(ret = jm_parse(source)))
 		goto err;
 
 	ret->filename = strdup(file);

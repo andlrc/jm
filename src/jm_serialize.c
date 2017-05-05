@@ -9,7 +9,7 @@ static char *indent(int depth)
 	char *tabs = NULL, *rettabs = NULL;
 	int max = depth > MAX_INDENT ? MAX_INDENT : depth;
 
-	if ((tabs = malloc(max + 1)) == NULL)
+	if (!(tabs = malloc(max + 1)))
 		return NULL;
 	rettabs = tabs;
 
@@ -26,7 +26,7 @@ static char *escape(char *string)
 	char *buff = NULL, *retbuff = NULL;
 	size_t buffsize = 256;
 
-	if ((buff = malloc(buffsize)) == NULL)
+	if (!(buff = malloc(buffsize)))
 		return NULL;
 
 	retbuff = buff;
@@ -40,7 +40,7 @@ static char *escape(char *string)
 		if (buffsize - 1 <= (size_t) (buff - retbuff)) {
 			char *temp;
 			buffsize *= 2;
-			if ((temp = realloc(retbuff, buffsize)) == NULL)
+			if (!(temp = realloc(retbuff, buffsize)))
 				goto err;
 			buff = temp + (buff - retbuff);
 			retbuff = temp;
@@ -79,7 +79,7 @@ static int serialize(FILE * outfh, jm_object_t * node, int flags,
 		fprintf(outfh, "{");
 		isFirst = 1;
 		next = node->firstChild;
-		while (next != NULL) {
+		while (next) {
 			if (!isFirst)
 				fprintf(outfh, ",");
 			else
@@ -113,7 +113,7 @@ static int serialize(FILE * outfh, jm_object_t * node, int flags,
 		if (next) {
 			if (flags & JM_PRETTY)
 				fprintf(outfh, "\n");
-			while (next != NULL) {
+			while (next) {
 				if (flags & JM_PRETTY) {
 					char *ind = indent(depth + 1);
 					fprintf(outfh, "%s", ind);
@@ -152,12 +152,12 @@ static int serialize(FILE * outfh, jm_object_t * node, int flags,
 int jm_serialize(char *file, jm_object_t * node, int flags)
 {
 	FILE *fh = strcmp(file, "-") == 0 ? stdout : fopen(file, "wb");
-	if (fh == NULL) {
+	if (!fh) {
 		fprintf(stderr, "%s: cannot create '%s'\n", PROGRAM_NAME,
 			file);
 		goto err;
 	}
-	if (node == NULL)
+	if (!node)
 		goto err;
 
 	int ret = serialize(fh, node, flags, 0);
@@ -167,7 +167,7 @@ int jm_serialize(char *file, jm_object_t * node, int flags)
 	return ret;
 
       err:
-	if (fh != NULL && fh != stdout)
+	if (fh && fh != stdout)
 		fclose(fh);
 	return 1;
 }
