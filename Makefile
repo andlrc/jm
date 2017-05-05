@@ -61,7 +61,7 @@ indent:
 
 test:	$(PRGNAME) .TEST
 .TEST:
-	CDPATH= cd test && ./runtests
+	CDPATH= cd t && for s in ./*.sh; do "$$s"; done
 
 tags:	$(TFILES)
 	ctags $(TFILES)
