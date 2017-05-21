@@ -339,7 +339,7 @@ static jm_object_t *array(struct jm_parser *p)
 	while (*p->ch != '\0') {
 		jm_object_t *val = NULL;
 		if (!(val = value(p))) {
-			free(array);
+			jm_free(array);
 			return NULL;
 		}
 		jm_arrayPush(array, val);

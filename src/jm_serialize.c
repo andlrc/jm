@@ -6,19 +6,16 @@
 
 static char *indent(int depth)
 {
-	char *tabs = NULL, *rettabs = NULL;
-	int max = depth > MAX_INDENT ? MAX_INDENT : depth;
+	static char tabs[MAX_INDENT + 1];
+	int max, i;
+	max = depth > MAX_INDENT ? MAX_INDENT : depth;
 
-	if (!(tabs = malloc(max + 1)))
-		return NULL;
-	rettabs = tabs;
+	for (i = 0; i < max; i++)
+		tabs[i] = '\t';
 
-	while (max--)
-		*tabs++ = '\t';
+	tabs[i] = '\0';
 
-	*tabs = '\0';
-
-	return rettabs;
+	return tabs;
 }
 
 static char *escape(char *string)
@@ -88,9 +85,8 @@ static int serialize(FILE * outfh, jm_object_t * node, int flags,
 			escaped = escape(next->name);
 
 			if (flags & JM_PRETTY) {
-				char *ind = indent(depth + 1);
-				fprintf(outfh, "\n%s%s: ", ind, escaped);
-				free(ind);
+				fprintf(outfh, "\n%s%s: ",
+					indent(depth + 1), escaped);
 			} else {
 				fprintf(outfh, "%s:", escaped);
 			}
@@ -99,9 +95,7 @@ static int serialize(FILE * outfh, jm_object_t * node, int flags,
 			next = next->nextSibling;
 		}
 		if (!isFirst && flags & JM_PRETTY) {
-			char *ind = indent(depth);
-			fprintf(outfh, "\n%s}", ind);
-			free(ind);
+			fprintf(outfh, "\n%s}", indent(depth));
 		} else {
 			fprintf(outfh, "}");
 		}
@@ -115,9 +109,8 @@ static int serialize(FILE * outfh, jm_object_t * node, int flags,
 				fprintf(outfh, "\n");
 			while (next) {
 				if (flags & JM_PRETTY) {
-					char *ind = indent(depth + 1);
-					fprintf(outfh, "%s", ind);
-					free(ind);
+					fprintf(outfh, "%s",
+						indent(depth + 1));
 				}
 				serialize(outfh, next, flags, depth + 1);
 				if (next->nextSibling)
@@ -127,9 +120,7 @@ static int serialize(FILE * outfh, jm_object_t * node, int flags,
 				next = next->nextSibling;
 			}
 			if (flags & JM_PRETTY) {
-				char *ind = indent(depth);
-				fprintf(outfh, "%s", ind);
-				free(ind);
+				fprintf(outfh, "%s", indent(depth));
 			}
 		}
 		fprintf(outfh, "]");
