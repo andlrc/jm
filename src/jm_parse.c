@@ -387,7 +387,7 @@ static char *string(struct jm_parser *p)
 			break;
 		case '\\':
 			*buff++ = *p->ch++;
-			/* Fallthough */
+			/* fallthrough */
 		default:
 			*buff++ = *p->ch;
 		}

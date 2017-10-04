@@ -365,7 +365,7 @@ static void jm_free_(jm_object_t * node)
 
 		free(indicators);
 
-		/* Fallthough */
+		/* fallthrough */
 	case jm_type_array:
 		next = node->firstChild;
 		while (next) {
