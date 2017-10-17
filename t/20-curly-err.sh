@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Expect to fail
-exp="json_merger: expected ')' instead of EOF at 1:0"
+exp="json_merger: expected ',' instead of EOF at 2:1"
 if out=$(cat - << EOF | ../json_merger 2>&1
 {"test": 1
 EOF
@@ -13,7 +13,8 @@ else
 	then
 		printf "%s: Test passed\n" "$0"
 	else
-		>&2 printf "%s: Failed!\nExpected: %s\nGot: %s\n" "$0"
+		>&2 printf "%s: Failed!\nExpected: %s\nGot: %s\n" \
+			   "$0" "$exp" "$out"
 		exit 1
 	fi
 fi

@@ -589,16 +589,28 @@ jm_object_t *jm_parse(char *source)
 
 static char *slurpFile(FILE * fh)
 {
-	char *buff = NULL;
-	long buffsize;
-	size_t len;
+	char *buff;
+	char *bufftmp;
+	size_t buffsize = 4096;
+	size_t bufflen = 0;
+	int c;
 
-	fseek(fh, 0, SEEK_END);
-	buffsize = ftell(fh);
-	buff = malloc(buffsize + 1);
-	fseek(fh, 0, SEEK_SET);
-	len = fread(buff, 1, buffsize, fh);
-	buff[len] = '\0';
+	if (!(buff = malloc(buffsize)))
+		return NULL;
+
+	while ((c = fgetc(fh)) != EOF) {
+		if (bufflen == buffsize) {
+			buffsize *= 2;
+			if (!(bufftmp = realloc(buff, buffsize))) {
+				free(buff);
+				return NULL;
+			}
+			buff = bufftmp;
+		}
+		buff[bufflen++] = c;
+	}
+
+	buff[bufflen++] = '\0';
 
 	return buff;
 }
